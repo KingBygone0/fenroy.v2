@@ -50,6 +50,9 @@ class DatabaseSeeder extends Seeder
             DeliveryZone::create(array_merge($zone, ['is_active' => true]));
         }
 
-        $this->call(ProductSeeder::class);
+        $this->call([
+            SettingsSeeder::class,
+            ProductSeeder::class,
+        ]);
     }
 }
