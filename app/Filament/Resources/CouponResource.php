@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\CouponResource\Pages;
 use App\Models\Coupon;
 use Filament\Actions\BulkActionGroup;
+use Illuminate\Support\Facades\DB;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -86,6 +87,16 @@ class CouponResource extends Resource
                     ->formatStateUsing(fn ($state, $record) =>
                         $state . ($record->max_uses ? ' / ' . $record->max_uses : ' / ∞')
                     ),
+                TextColumn::make('total_discount')
+                    ->label('Total Discount Given')
+                    ->getStateUsing(function ($record) {
+                        return DB::table('orders')
+                            ->where('coupon_code', $record->code)
+                            ->where('payment_status', 'paid')
+                            ->sum('discount');
+                    })
+                    ->formatStateUsing(fn ($state) => 'GH₵ ' . number_format((float) $state, 2))
+                    ->sortable(false),
                 TextColumn::make('expires_at')->since()->placeholder('No expiry'),
                 IconColumn::make('is_active')->boolean()->label('Active'),
             ])
