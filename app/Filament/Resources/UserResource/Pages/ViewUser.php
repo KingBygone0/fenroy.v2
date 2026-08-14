@@ -13,7 +13,7 @@ class ViewUser extends Page
 {
     protected static string $resource = UserResource::class;
 
-    protected static string $view = 'filament.resources.user-resource.pages.view-user';
+    protected string $view = 'filament.resources.user-resource.pages.view-user';
 
     public User $record;
 
