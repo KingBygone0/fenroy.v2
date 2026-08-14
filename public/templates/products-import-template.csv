@@ -1,0 +1,3 @@
+name,sku,unit,type,description,category,price,old_price,stock,is_active,is_featured,is_best_seller
+Tomatoes (1kg),TOM-001,1kg pack,grocery,Fresh ripe tomatoes,Vegetables,5.99,,50,1,0,0
+Chicken Breast,CHK-001,500g pack,grocery,Boneless chicken breast,Meat & Fish,25.00,28.00,30,1,1,0

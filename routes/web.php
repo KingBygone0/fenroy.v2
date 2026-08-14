@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PaystackController;
 use App\Models\Order;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Storefront\HomeController;
@@ -82,3 +83,24 @@ Route::get('/order/track/{orderNumber}', function ($orderNumber) {
 // ── Paystack ─────────────────────────────────────────────────────
 Route::post('/paystack/verify',  [PaystackController::class, 'verify'])->name('paystack.verify');
 Route::post('/paystack/webhook', [PaystackController::class, 'webhook'])->name('paystack.webhook')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+
+// ── Admin: Product bulk import upload ────────────────────────────
+Route::post('/admin/import-products/upload', function (Request $request) {
+    $request->validate([
+        'file' => 'required|string',
+        'name' => 'required|string',
+        'ext'  => 'required|in:csv,xlsx',
+    ]);
+
+    $content  = base64_decode($request->file);
+    $filename = 'imports/import-' . now()->format('YmdHis') . '.' . $request->ext;
+    $path     = storage_path('app/' . $filename);
+
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0755, true);
+    }
+
+    file_put_contents($path, $content);
+
+    return response()->json(['path' => $path]);
+})->middleware(['auth'])->name('admin.import.upload');
