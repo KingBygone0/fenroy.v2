@@ -13,6 +13,8 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Tables\Actions\BulkAction;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -189,6 +191,64 @@ class OrderResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    BulkAction::make('updateStatus')
+                        ->label('Update Status')
+                        ->icon('heroicon-m-arrow-path')
+                        ->form([
+                            Select::make('status')
+                                ->label('New Status')
+                                ->options([
+                                    'processing'       => 'Processing',
+                                    'picking'          => 'Picking',
+                                    'packed'           => 'Packed',
+                                    'out-for-delivery' => 'Out for Delivery',
+                                    'delivered'        => 'Delivered',
+                                    'cancelled'        => 'Cancelled',
+                                    'refunded'         => 'Refunded',
+                                ])
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each(fn ($record) => $record->update(['status' => $data['status']]));
+                            Notification::make()
+                                ->title(count($records) . ' order(s) updated to ' . ucfirst(str_replace('-', ' ', $data['status'])))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('cancelOrders')
+                        ->label('Cancel Selected')
+                        ->icon('heroicon-m-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancel selected orders?')
+                        ->modalDescription('This will mark all selected orders as Cancelled.')
+                        ->action(function (Collection $records): void {
+                            $records->each(fn ($record) => $record->update(['status' => 'cancelled']));
+                            Notification::make()
+                                ->title(count($records) . ' order(s) cancelled')
+                                ->warning()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('refundOrders')
+                        ->label('Mark as Refunded')
+                        ->icon('heroicon-m-arrow-uturn-left')
+                        ->color('gray')
+                        ->requiresConfirmation()
+                        ->modalHeading('Mark selected orders as Refunded?')
+                        ->modalDescription('This will mark all selected orders as Refunded.')
+                        ->action(function (Collection $records): void {
+                            $records->each(fn ($record) => $record->update(['status' => 'refunded']));
+                            Notification::make()
+                                ->title(count($records) . ' order(s) marked as refunded')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
                     DeleteBulkAction::make(),
                 ]),
             ]);
