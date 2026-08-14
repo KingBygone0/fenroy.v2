@@ -35,14 +35,26 @@ class ImportProducts extends Page
 
     public array $importErrors = [];
 
+    private function resolvedPath(): ?string
+    {
+        if (! $this->tempPath) {
+            return null;
+        }
+        $base = storage_path('app/imports');
+        $safe = $base . DIRECTORY_SEPARATOR . basename($this->tempPath);
+        return str_starts_with(realpath($safe) ?: '', $base) ? $safe : null;
+    }
+
     public function goToPreview(): void
     {
-        if (! $this->tempPath || ! file_exists($this->tempPath)) {
+        $path = $this->resolvedPath();
+
+        if (! $path || ! file_exists($path)) {
             Notification::make()->title('File not found. Please re-upload.')->danger()->send();
             return;
         }
 
-        $handle = fopen($this->tempPath, 'r');
+        $handle = fopen($path, 'r');
         $this->previewHeaders = fgetcsv($handle) ?: [];
         $previewData = [];
         $count = 0;
@@ -58,7 +70,9 @@ class ImportProducts extends Page
 
     public function runImport(): void
     {
-        if (! $this->tempPath || ! file_exists($this->tempPath)) {
+        $path = $this->resolvedPath();
+
+        if (! $path || ! file_exists($path)) {
             Notification::make()->title('Import file not found. Please re-upload.')->danger()->send();
             $this->stage = 'upload';
             return;
@@ -66,16 +80,16 @@ class ImportProducts extends Page
 
         $import = new ProductsImport();
 
-        $ext = strtolower(pathinfo($this->tempPath, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $type = $ext === 'xlsx' ? \Maatwebsite\Excel\Excel::XLSX : \Maatwebsite\Excel\Excel::CSV;
 
-        Excel::import($import, $this->tempPath, null, $type);
+        Excel::import($import, $path, null, $type);
 
         $this->created      = $import->created;
         $this->updated      = $import->updated;
         $this->importErrors = $import->errors;
 
-        @unlink($this->tempPath);
+        @unlink($path);
         $this->tempPath = null;
 
         $this->stage = 'done';

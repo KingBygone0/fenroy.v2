@@ -41,8 +41,8 @@
                             });
                             const data = await resp.json();
                             uploading = false;
-                            if (data.path) {
-                                await $wire.set('tempPath', data.path);
+                            if (data.token) {
+                                await $wire.set('tempPath', data.token);
                                 await $wire.call('goToPreview');
                             }
                         };

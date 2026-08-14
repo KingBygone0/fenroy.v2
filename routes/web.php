@@ -86,6 +86,8 @@ Route::post('/paystack/webhook', [PaystackController::class, 'webhook'])->name('
 
 // ── Admin: Product bulk import upload ────────────────────────────
 Route::post('/admin/import-products/upload', function (Request $request) {
+    abort_unless(auth()->user()?->is_admin, 403);
+
     $request->validate([
         'file' => 'required|string',
         'name' => 'required|string',
@@ -93,14 +95,14 @@ Route::post('/admin/import-products/upload', function (Request $request) {
     ]);
 
     $content  = base64_decode($request->file);
-    $filename = 'imports/import-' . now()->format('YmdHis') . '.' . $request->ext;
-    $path     = storage_path('app/' . $filename);
+    $filename = 'import-' . now()->format('YmdHis') . '-' . uniqid() . '.' . $request->ext;
+    $dir      = storage_path('app/imports');
 
-    if (! is_dir(dirname($path))) {
-        mkdir(dirname($path), 0755, true);
+    if (! is_dir($dir)) {
+        mkdir($dir, 0755, true);
     }
 
-    file_put_contents($path, $content);
+    file_put_contents($dir . DIRECTORY_SEPARATOR . $filename, $content);
 
-    return response()->json(['path' => $path]);
+    return response()->json(['token' => $filename]);
 })->middleware(['auth'])->name('admin.import.upload');
