@@ -11,6 +11,17 @@
 </head>
 <body class="bg-brand-bg font-sans text-brand-text antialiased">
 
+    {{-- ─── Announcement Banner ──────────────────────────────── --}}
+@php
+    $bannerEnabled = \App\Models\Setting::get('banner_enabled', '0');
+    $bannerMessage = \App\Models\Setting::get('banner_message', '');
+@endphp
+@if($bannerEnabled === '1' && $bannerMessage)
+<div class="w-full bg-brand-red text-white text-center text-sm font-medium py-2 px-4">
+    {{ $bannerMessage }}
+</div>
+@endif
+
     {{-- ═══════════════════════════════════════════════════════════
          DESKTOP HEADER  (hidden on mobile)
     ═══════════════════════════════════════════════════════════ --}}
