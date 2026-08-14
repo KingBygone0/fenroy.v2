@@ -7,6 +7,7 @@ use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -51,7 +52,10 @@ class UserResource extends Resource
                 IconColumn::make('is_admin')->boolean()->label('Admin'),
                 TextColumn::make('created_at')->since()->sortable()->label('Joined'),
             ])
-            ->actions([EditAction::make()])
+            ->actions([
+                ViewAction::make(),
+                EditAction::make(),
+            ])
             ->bulkActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
     }
 
@@ -59,6 +63,7 @@ class UserResource extends Resource
     {
         return [
             'index' => Pages\ListUsers::route('/'),
+            'view'  => Pages\ViewUser::route('/{record}'),
             'edit'  => Pages\EditUser::route('/{record}/edit'),
         ];
     }
