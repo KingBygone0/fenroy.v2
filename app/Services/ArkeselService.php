@@ -85,6 +85,17 @@ class ArkeselService
         return $this->send($order->customer_phone, $message);
     }
 
+    public function notifyAdmin(Order $order): bool
+    {
+        $adminPhone = config('arkesel.admin_phone');
+        if (! $adminPhone) {
+            return false;
+        }
+        $total   = number_format($order->total, 2);
+        $message = "Fenroy: New order {$order->order_number} from {$order->customer_name} ({$order->customer_phone}). Total: GHS {$total}.";
+        return $this->send($adminPhone, $message);
+    }
+
     private function normalizePhone(string $phone): ?string
     {
         // Remove all spaces, dashes, parentheses

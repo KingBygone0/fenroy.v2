@@ -72,6 +72,7 @@ class PaystackController extends Controller
             $sms = new ArkeselService();
             $sms->orderReceived($order);
             $sms->paymentConfirmed($order);
+            $sms->notifyAdmin($order);
         } catch (\Throwable $e) {
             Log::warning('SMS failed for order ' . $order->order_number . ': ' . $e->getMessage());
         }
