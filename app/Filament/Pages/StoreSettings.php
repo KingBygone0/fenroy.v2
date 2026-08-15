@@ -28,6 +28,9 @@ class StoreSettings extends Page
     public bool   $banner_enabled       = false;
     public string $banner_message       = '';
     public string $minimum_order_amount = '0';
+    public string $delivery_fee         = '0';
+    public string $free_delivery_above  = '0';
+    public string $ga4_measurement_id   = '';
 
     public function mount(): void
     {
@@ -41,6 +44,9 @@ class StoreSettings extends Page
         $this->banner_enabled       = (bool) Setting::get('banner_enabled', '0');
         $this->banner_message       = Setting::get('banner_message', '');
         $this->minimum_order_amount = Setting::get('minimum_order_amount', '0');
+        $this->delivery_fee         = Setting::get('delivery_fee', '0');
+        $this->free_delivery_above  = Setting::get('free_delivery_above', '0');
+        $this->ga4_measurement_id   = Setting::get('ga4_measurement_id', '');
     }
 
     public function save(): void
@@ -55,6 +61,9 @@ class StoreSettings extends Page
             'whatsapp_number'      => 'nullable|string|max:30',
             'banner_message'       => 'nullable|string|max:300',
             'minimum_order_amount' => 'nullable|numeric|min:0',
+            'delivery_fee'         => 'nullable|numeric|min:0',
+            'free_delivery_above'  => 'nullable|numeric|min:0',
+            'ga4_measurement_id'   => 'nullable|string|max:30|regex:/^G-[A-Z0-9]+$/i',
         ]);
 
         Setting::set('store_name', $this->store_name);
@@ -67,6 +76,9 @@ class StoreSettings extends Page
         Setting::set('banner_enabled', $this->banner_enabled ? '1' : '0');
         Setting::set('banner_message', $this->banner_message);
         Setting::set('minimum_order_amount', $this->minimum_order_amount);
+        Setting::set('delivery_fee', $this->delivery_fee);
+        Setting::set('free_delivery_above', $this->free_delivery_above);
+        Setting::set('ga4_measurement_id', $this->ga4_measurement_id);
 
         Notification::make()->title('Settings saved')->success()->send();
     }

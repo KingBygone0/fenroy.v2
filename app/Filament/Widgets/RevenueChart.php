@@ -7,6 +7,8 @@ use Filament\Widgets\ChartWidget;
 
 class RevenueChart extends ChartWidget
 {
+    protected static ?int $sort = 6;
+
     protected ?string $heading = 'Revenue — Last 7 Days (GH₵)';
 
     protected array|string|int $columnSpan = 'full';

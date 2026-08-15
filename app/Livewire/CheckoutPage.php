@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
+use App\Models\Setting;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
@@ -169,8 +170,11 @@ class CheckoutPage extends Component
     #[Computed]
     public function deliveryFee(): float
     {
+        $freeAbove = (float) Setting::get('free_delivery_above', '0');
+        if ($freeAbove > 0 && $this->subtotal >= $freeAbove) return 0.00;
+
         $zone = $this->selectedZone;
-        if (! $zone) return 0.00;
+        if (! $zone) return (float) Setting::get('delivery_fee', '0');
         if ($zone->free_above && $this->subtotal >= $zone->free_above) return 0.00;
         return (float) $zone->fee;
     }

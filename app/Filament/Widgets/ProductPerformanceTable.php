@@ -52,10 +52,19 @@ class ProductPerformanceTable extends BaseWidget
     public function table(Table $table): Table
     {
         $products = $this->getTopProducts();
+        $names    = $products->pluck('name')->toArray();
+
+        // Build FIELD() placeholders to preserve rank sort order from the aggregation
+        $placeholders = implode(',', array_fill(0, count($names), '?'));
 
         return $table
             ->query(
-                Product::query()->whereIn('name', $products->pluck('name')->toArray())
+                Product::query()
+                    ->whereIn('name', $names)
+                    ->when(
+                        count($names) > 0,
+                        fn ($q) => $q->orderByRaw("FIELD(name, {$placeholders})", $names)
+                    )
             )
             ->columns([
                 TextColumn::make('rank')
@@ -81,7 +90,6 @@ class ProductPerformanceTable extends BaseWidget
                     })
                     ->sortable(false),
             ])
-            ->paginated(false)
-            ->defaultSort('name');
+            ->paginated(false);
     }
 }

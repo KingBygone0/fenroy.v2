@@ -19,6 +19,8 @@ use Filament\Tables\Table;
 
 class DeliveryZoneResource extends Resource
 {
+    public static function shouldRegisterNavigation(): bool { return false; }
+
     protected static ?string $model = DeliveryZone::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';

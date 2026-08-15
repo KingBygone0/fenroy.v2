@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\Order;
+use Carbon\Carbon;
 use Filament\Pages\Page;
+use Livewire\Attributes\Computed;
 
 class RevenueReport extends Page
 {
@@ -27,7 +29,8 @@ class RevenueReport extends Page
         $this->dateTo   = now()->format('Y-m-d');
     }
 
-    public function getData(): \Illuminate\Support\Collection
+    #[Computed]
+    public function reportData(): \Illuminate\Support\Collection
     {
         $from = $this->dateFrom . ' 00:00:00';
         $to   = $this->dateTo . ' 23:59:59';
@@ -38,17 +41,17 @@ class RevenueReport extends Page
 
         return match ($this->groupBy) {
             'week' => $base
-                ->selectRaw('DATE_FORMAT(MIN(created_at), "%Y W%u") as period, COUNT(*) as orders, SUM(total) as revenue')
+                ->selectRaw('DATE_FORMAT(MIN(created_at), "%Y W%u") as period, COUNT(*) as orders, SUM(total) as revenue, COALESCE(SUM(delivery_fee), 0) as delivery_total')
                 ->groupByRaw('YEARWEEK(created_at, 1)')
                 ->orderByRaw('YEARWEEK(created_at, 1) DESC')
                 ->get(),
             'month' => $base
-                ->selectRaw('DATE_FORMAT(created_at, "%Y %b") as period, COUNT(*) as orders, SUM(total) as revenue')
+                ->selectRaw('DATE_FORMAT(created_at, "%Y %b") as period, COUNT(*) as orders, SUM(total) as revenue, COALESCE(SUM(delivery_fee), 0) as delivery_total')
                 ->groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
                 ->orderByRaw('DATE_FORMAT(created_at, "%Y-%m") DESC')
                 ->get(),
             default => $base
-                ->selectRaw('DATE(created_at) as period, COUNT(*) as orders, SUM(total) as revenue')
+                ->selectRaw('DATE(created_at) as period, COUNT(*) as orders, SUM(total) as revenue, COALESCE(SUM(delivery_fee), 0) as delivery_total')
                 ->groupByRaw('DATE(created_at)')
                 ->orderBy('period', 'desc')
                 ->get(),
@@ -57,27 +60,72 @@ class RevenueReport extends Page
 
     public function getTotals(): array
     {
+        $from = Carbon::parse($this->dateFrom);
+        $to   = Carbon::parse($this->dateTo);
+        $days = max(1, $from->diffInDays($to) + 1);
+
         $result = Order::query()
             ->where('payment_status', 'paid')
             ->whereBetween('created_at', [$this->dateFrom . ' 00:00:00', $this->dateTo . ' 23:59:59'])
-            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total), 0) as revenue')
+            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total), 0) as revenue, COALESCE(SUM(delivery_fee), 0) as delivery_total')
             ->first();
 
+        $orders   = (int)   ($result->orders        ?? 0);
+        $revenue  = (float) ($result->revenue        ?? 0);
+        $delivery = (float) ($result->delivery_total ?? 0);
+
+        $prevResult = Order::query()
+            ->where('payment_status', 'paid')
+            ->whereBetween('created_at', [
+                $from->copy()->subDays($days)->format('Y-m-d') . ' 00:00:00',
+                $from->copy()->subDay()->format('Y-m-d')       . ' 23:59:59',
+            ])
+            ->selectRaw('COALESCE(SUM(total), 0) as revenue')
+            ->first();
+
+        $prevRevenue = (float) ($prevResult->revenue ?? 0);
+        $change = $prevRevenue > 0
+            ? round((($revenue - $prevRevenue) / $prevRevenue) * 100, 1)
+            : ($revenue > 0 ? 100.0 : 0.0);
+
         return [
-            'orders'  => $result->orders ?? 0,
-            'revenue' => $result->revenue ?? 0,
+            'orders'      => $orders,
+            'revenue'     => $revenue,
+            'net_revenue' => $revenue - $delivery,
+            'delivery'    => $delivery,
+            'avg_order'   => $orders > 0 ? $revenue / $orders : 0.0,
+            'prev_revenue'=> $prevRevenue,
+            'change'      => $change,
+        ];
+    }
+
+    public function getChartData(): array
+    {
+        // Reverse so chart reads oldest → newest (left → right)
+        $data = $this->reportData->reverse()->values();
+
+        return [
+            'labels'   => $data->pluck('period')->toArray(),
+            'revenues' => $data->pluck('revenue')->map(fn ($v) => round((float) $v, 2))->toArray(),
         ];
     }
 
     public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $data = $this->getData();
+        $data = $this->reportData;
 
         return response()->streamDownload(function () use ($data) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Period', 'Orders', 'Revenue (GH₵)']);
+            fputcsv($handle, ['Period', 'Orders', 'Revenue (GH₵)', 'Delivery (GH₵)', 'Net Revenue (GH₵)']);
             foreach ($data as $row) {
-                fputcsv($handle, [$row->period, $row->orders, number_format($row->revenue, 2)]);
+                $net = (float) $row->revenue - (float) ($row->delivery_total ?? 0);
+                fputcsv($handle, [
+                    $row->period,
+                    $row->orders,
+                    number_format($row->revenue, 2),
+                    number_format($row->delivery_total ?? 0, 2),
+                    number_format($net, 2),
+                ]);
             }
             fclose($handle);
         }, 'revenue-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv']);

@@ -15,7 +15,7 @@ class StoreOverviewStats extends BaseWidget
     protected function getStats(): array
     {
         $todayRevenue  = Order::whereDate('created_at', today())->where('payment_status', 'paid')->sum('total');
-        $todayOrders   = Order::whereDate('created_at', today())->count();
+        $todayOrders   = Order::whereDate('created_at', today())->where('payment_status', 'paid')->count();
         $pendingOrders = Order::whereIn('status', ['processing', 'picking', 'packed'])->count();
         $totalOrders   = Order::count();
         $totalRevenue  = Order::where('payment_status', 'paid')->sum('total');
