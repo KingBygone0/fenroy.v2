@@ -42,6 +42,8 @@ Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::middleware('guest')->group(function () {
     Route::get('/login',    \App\Livewire\Auth\Login::class)->name('login');
     Route::get('/register', \App\Livewire\Auth\Register::class)->name('register');
+    Route::get('/forgot-password', \App\Livewire\Auth\ForgotPassword::class)->name('password.request');
+    Route::get('/reset-password/{token}', \App\Livewire\Auth\ResetPassword::class)->name('password.reset');
 });
 
 Route::post('/logout', function () {
@@ -106,3 +108,40 @@ Route::post('/admin/import-products/upload', function (Request $request) {
 
     return response()->json(['token' => $filename]);
 })->middleware(['auth'])->name('admin.import.upload');
+
+// ── Search autocomplete ──────────────────────────────────────────
+Route::get('/api/search-suggest', function (Request $request) {
+    $q = trim($request->query('q', ''));
+    if (strlen($q) < 2) return response()->json([]);
+    $products = \App\Models\Product::where('is_active', true)
+        ->where('name', 'like', '%' . $q . '%')
+        ->orderByDesc('is_featured')
+        ->limit(6)
+        ->get(['name', 'slug', 'price', 'image']);
+    return response()->json($products->map(fn ($p) => [
+        'name'  => $p->name,
+        'slug'  => $p->slug,
+        'price' => (float) $p->price,
+        'image' => $p->image_url,
+    ]));
+})->name('search.suggest');
+
+// ── Sitemap ──────────────────────────────────────────────────────
+Route::get('/sitemap.xml', function () {
+    $products   = \App\Models\Product::where('is_active', true)->get(['slug', 'updated_at']);
+    $categories = ['fruits-vegetables','beverages','dairy-eggs','pantry','snacks-sweets','personal-care','household','baby-care'];
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>';
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+    $staticPages = ['/', '/categories', '/search', '/deals', '/best-sellers', '/new-arrivals'];
+    foreach ($staticPages as $page) {
+        $xml .= '<url><loc>https://fenroy.shop' . $page . '</loc><changefreq>weekly</changefreq><priority>' . ($page === '/' ? '1.0' : '0.8') . '</priority></url>';
+    }
+    foreach ($categories as $slug) {
+        $xml .= '<url><loc>https://fenroy.shop/categories/' . $slug . '</loc><changefreq>daily</changefreq><priority>0.8</priority></url>';
+    }
+    foreach ($products as $product) {
+        $xml .= '<url><loc>https://fenroy.shop/products/' . $product->slug . '</loc><lastmod>' . $product->updated_at->toAtomString() . '</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>';
+    }
+    $xml .= '</urlset>';
+    return response($xml, 200)->header('Content-Type', 'application/xml');
+})->name('sitemap');

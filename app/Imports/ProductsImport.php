@@ -17,6 +17,22 @@ class ProductsImport implements ToCollection, WithHeadingRow
 
     private array $validCategories = [];
 
+    // WooCommerce export → our field names
+    private array $aliases = [
+        'name'          => ['name'],
+        'sku'           => ['sku'],
+        'price'         => ['price', 'regular_price', 'meta_fenroy_shelf_price_ghs'],
+        'stock'         => ['stock'],
+        'category'      => ['category', 'categories'],
+        'unit'          => ['unit'],
+        'description'   => ['description', 'short_description'],
+        'type'          => ['type'],
+        'old_price'     => ['old_price', 'sale_price'],
+        'is_active'     => ['is_active', 'published'],
+        'is_featured'   => ['is_featured'],
+        'is_best_seller'=> ['is_best_seller'],
+    ];
+
     public function __construct()
     {
         $this->validCategories = Category::pluck('name')
@@ -24,55 +40,98 @@ class ProductsImport implements ToCollection, WithHeadingRow
             ->toArray();
     }
 
+    private function get(Collection $row, string $field): mixed
+    {
+        foreach ($this->aliases[$field] ?? [$field] as $key) {
+            $val = $row->get($key);
+            if ($val !== null) return $val;
+        }
+        return null;
+    }
+
     public function collection(Collection $rows): void
     {
+        if ($rows->isEmpty()) {
+            $this->errors[] = 'File appears empty or could not be read.';
+            return;
+        }
+
+        $firstRow = $rows->first();
+
+        // Must have at minimum: name, sku, price, stock, category
+        $required = ['name', 'sku', 'price', 'stock', 'category'];
+        $missing  = array_filter($required, fn ($f) => is_null($this->get($firstRow, $f)));
+        if ($missing) {
+            $found = $firstRow->keys()->implode(', ');
+            $this->errors[] = 'Column mismatch — could not find: ' . implode(', ', $missing)
+                . '. Columns in file: ' . ($found ?: '(none)');
+            return;
+        }
+
         foreach ($rows as $index => $row) {
             $rowNum = $index + 2;
 
-            foreach (['name', 'sku', 'unit', 'price', 'stock', 'category'] as $field) {
-                if (empty($row[$field]) && $row[$field] !== '0') {
+            foreach ($required as $field) {
+                $val = $this->get($row, $field);
+                if (($val === null || $val === '') && $val !== '0') {
                     $this->errors[] = "Row {$rowNum}: Missing required field '{$field}'";
                     continue 2;
                 }
             }
 
-            if (! in_array(strtolower(trim($row['category'])), $this->validCategories, true)) {
-                $this->errors[] = "Row {$rowNum}: Unknown category '{$row['category']}'";
+            $categoryRaw = trim((string) $this->get($row, 'category'));
+            // WooCommerce may list multiple categories separated by comma — take first
+            if (str_contains($categoryRaw, ',')) {
+                $categoryRaw = trim(explode(',', $categoryRaw)[0]);
+            }
+
+            if (! in_array(strtolower($categoryRaw), $this->validCategories, true)) {
+                $this->errors[] = "Row {$rowNum}: Unknown category '{$categoryRaw}'";
                 continue;
             }
 
-            if (! is_numeric($row['price'])) {
-                $this->errors[] = "Row {$rowNum}: Invalid price '{$row['price']}'";
+            // Store as slug to match how CategoryPage queries products
+            $category = Str::slug($categoryRaw);
+
+            $price = $this->get($row, 'price');
+            if (! is_numeric($price)) {
+                $this->errors[] = "Row {$rowNum}: Invalid price '{$price}'";
                 continue;
             }
 
-            if (! is_numeric($row['stock'])) {
-                $this->errors[] = "Row {$rowNum}: Invalid stock '{$row['stock']}'";
+            $stock = $this->get($row, 'stock');
+            if (! is_numeric($stock)) {
+                $this->errors[] = "Row {$rowNum}: Invalid stock '{$stock}'";
                 continue;
             }
+
+            $oldPrice    = $this->get($row, 'old_price');
+            $unitRaw     = $this->get($row, 'unit');
+            $isActiveRaw = $this->get($row, 'is_active');
 
             $data = [
-                'name'           => trim($row['name']),
-                'slug'           => Str::slug(trim($row['name'])),
-                'unit'           => trim($row['unit']),
-                'type'           => trim($row['type'] ?? 'grocery') ?: 'grocery',
-                'description'    => trim($row['description'] ?? ''),
-                'category'       => trim($row['category']),
-                'price'          => (float) $row['price'],
-                'old_price'      => (isset($row['old_price']) && is_numeric($row['old_price'])) ? (float) $row['old_price'] : null,
-                'stock'          => (int) $row['stock'],
-                'is_active'      => isset($row['is_active']) ? (bool)(int)$row['is_active'] : true,
-                'is_featured'    => isset($row['is_featured']) ? (bool)(int)$row['is_featured'] : false,
-                'is_best_seller' => isset($row['is_best_seller']) ? (bool)(int)$row['is_best_seller'] : false,
+                'name'           => trim((string) $this->get($row, 'name')),
+                'slug'           => Str::slug(trim((string) $this->get($row, 'name'))),
+                'unit'           => $unitRaw ? trim((string) $unitRaw) : 'piece',
+                'type'           => trim((string) ($this->get($row, 'type') ?? 'grocery')) ?: 'grocery',
+                'description'    => trim((string) ($this->get($row, 'description') ?? '')),
+                'category'       => $category,
+                'price'          => (float) $price,
+                'old_price'      => ($oldPrice !== null && is_numeric($oldPrice)) ? (float) $oldPrice : null,
+                'stock'          => (int) $stock,
+                'is_active'      => $isActiveRaw !== null ? (bool)(int) $isActiveRaw : true,
+                'is_featured'    => $this->get($row, 'is_featured') !== null ? (bool)(int) $this->get($row, 'is_featured') : false,
+                'is_best_seller' => $this->get($row, 'is_best_seller') !== null ? (bool)(int) $this->get($row, 'is_best_seller') : false,
             ];
 
-            $existing = Product::where('sku', trim($row['sku']))->first();
+            $sku      = trim((string) $this->get($row, 'sku'));
+            $existing = Product::where('sku', $sku)->first();
 
             if ($existing) {
                 $existing->update($data);
                 $this->updated++;
             } else {
-                $data['sku'] = trim($row['sku']);
+                $data['sku'] = $sku;
                 Product::create($data);
                 $this->created++;
             }

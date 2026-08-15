@@ -5,6 +5,13 @@
         <p style="margin:4px 0 0; font-size:13px; color:#666666;">Sign in to your Fenroy account</p>
     </div>
 
+    {{-- Password reset success --}}
+    @if(request()->query('reset'))
+    <div style="margin-bottom:20px; padding:12px 16px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:12px; font-size:13px; color:#166534;">
+        ✓ Password updated successfully. Sign in with your new password.
+    </div>
+    @endif
+
     {{-- Error banner --}}
     @if($error)
     <div style="margin-bottom:20px; display:flex; align-items:flex-start; gap:12px; padding:12px 16px; background:#FFF0F0; border:1px solid #FFCDD2; border-radius:12px; font-size:13px; color:#D32F2F;">
@@ -32,7 +39,7 @@
         <div style="margin-bottom:8px;" x-data="{ show: false }">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                 <label for="password" style="font-size:13px; font-weight:600; color:#171717;">Password</label>
-                <a href="#" style="font-size:12px; color:#B71C1C; text-decoration:none;"
+                <a href="{{ route('password.request') }}" style="font-size:12px; color:#B71C1C; text-decoration:none;"
                    onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                     Forgot password?
                 </a>

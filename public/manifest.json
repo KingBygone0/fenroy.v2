@@ -1,0 +1,16 @@
+{
+  "name": "Fenroy — Fresh Groceries",
+  "short_name": "Fenroy",
+  "description": "Ghana's online supermarket. Fresh groceries delivered fast.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/images/favicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/images/favicon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["shopping", "food"],
+  "lang": "en-GH"
+}

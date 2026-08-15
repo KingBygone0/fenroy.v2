@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\OrderConfirmedMail;
 use App\Models\Order;
 use App\Services\ArkeselService;
+use App\Services\StockAlertService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -75,6 +76,13 @@ class PaystackController extends Controller
             $sms->notifyAdmin($order);
         } catch (\Throwable $e) {
             Log::warning('SMS failed for order ' . $order->order_number . ': ' . $e->getMessage());
+        }
+
+        // Low stock alerts
+        try {
+            (new StockAlertService())->checkAfterOrder($orderData['items'] ?? []);
+        } catch (\Throwable $e) {
+            Log::warning('Stock alert failed: ' . $e->getMessage());
         }
 
         // Email receipt

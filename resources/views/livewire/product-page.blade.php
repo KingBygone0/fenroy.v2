@@ -39,40 +39,44 @@
         <div class="md:grid md:grid-cols-2 md:gap-12">
 
             {{-- ─── LEFT: gallery ─── --}}
-            <div>
+            <div x-data="{ images: {{ json_encode($product['images'] ?? [$product['image']]) }} }">
                 <div class="relative bg-white rounded-[18px] border border-brand-border-light overflow-hidden h-[260px] md:h-[420px] flex items-center justify-center">
-                    {{-- Striped placeholder (real photography drops in) --}}
+                    {{-- Fallback striped bg shown while image loads --}}
                     <div class="absolute inset-0" style="background: repeating-linear-gradient(45deg, #FAFAFA, #FAFAFA 12px, #F3F3F3 12px, #F3F3F3 24px);"></div>
-                    <svg class="relative w-16 h-16 text-brand-border" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+
+                    {{-- Actual product image --}}
+                    <img :src="images[image] ?? images[0]"
+                         alt="{{ e($product['name']) }}"
+                         class="relative z-10 max-h-full max-w-full object-contain p-4"
+                         onerror="this.style.display='none'">
 
                     @if($hasDiscount)
-                    <span class="absolute top-3 left-3 flex items-center h-6 px-2.5 rounded-full bg-brand-red text-white text-[11px] font-bold uppercase tracking-wide">
+                    <span class="absolute top-3 left-3 z-20 flex items-center h-6 px-2.5 rounded-full bg-brand-red text-white text-[11px] font-bold uppercase tracking-wide">
                         {{ round($saveAmount / $product['old_price'] * 100) }}% off
                     </span>
                     @endif
 
                     {{-- Desktop wishlist on image --}}
                     <button wire:click="toggleWishlist"
-                            class="hidden md:flex absolute top-3 right-3 w-10 h-10 items-center justify-center rounded-full bg-white shadow-card hover:shadow-hover transition cursor-pointer"
+                            class="hidden md:flex absolute top-3 right-3 z-20 w-10 h-10 items-center justify-center rounded-full bg-white shadow-card hover:shadow-hover transition cursor-pointer"
                             aria-label="Add to wishlist">
                         <svg class="w-5 h-5 {{ $wishlisted ? 'text-brand-red' : 'text-brand-secondary-text' }}" fill="{{ $wishlisted ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                     </button>
                 </div>
 
-                {{-- Thumbnails (desktop) --}}
+                {{-- Thumbnails (desktop) — only show if multiple images --}}
+                @if(count($product['images'] ?? [$product['image']]) > 1)
                 <div class="hidden md:flex gap-3 mt-4">
-                    @for($i = 0; $i < 4; $i++)
+                    @foreach(($product['images'] ?? [$product['image']]) as $i => $imgUrl)
                     <button
                         @click="image = {{ $i }}"
-                        class="relative w-[76px] h-[76px] rounded-xl overflow-hidden border-2 transition-colors cursor-pointer"
+                        class="relative w-[76px] h-[76px] rounded-xl overflow-hidden border-2 transition-colors cursor-pointer bg-white"
                         :class="image === {{ $i }} ? 'border-brand-red' : 'border-transparent hover:border-brand-border'">
-                        <div class="absolute inset-0" style="background: repeating-linear-gradient(45deg, #FAFAFA, #FAFAFA 8px, #F3F3F3 8px, #F3F3F3 16px);"></div>
-                        @if($i === 3)
-                        <span class="absolute inset-0 bg-black/45 flex items-center justify-center text-white text-sm font-bold">+2</span>
-                        @endif
+                        <img src="{{ $imgUrl }}" alt="View {{ $i + 1 }}" class="w-full h-full object-contain p-1">
                     </button>
-                    @endfor
+                    @endforeach
                 </div>
+                @endif
             </div>
 
             {{-- ─── RIGHT: info ─── --}}

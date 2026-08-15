@@ -1,34 +1,39 @@
 @props(['active' => ''])
 
-{{-- Mobile horizontal tab bar --}}
-<nav class="md:hidden flex overflow-x-auto gap-1 pb-4 -mx-4 px-4 mb-5" style="scrollbar-width:none">
-    @php
-    $mobileItems = [
-        ['route' => 'account.profile',   'label' => 'Profile',    'key' => 'profile'],
-        ['route' => 'account.orders',    'label' => 'My Orders',  'key' => 'orders'],
-        ['route' => 'account.addresses', 'label' => 'Addresses',  'key' => 'addresses'],
-        ['route' => 'account.wishlist',  'label' => 'Wishlist',   'key' => 'wishlist'],
-    ];
-    @endphp
-    @foreach($mobileItems as $item)
-        <a href="{{ route($item['route']) }}"
-           class="shrink-0 h-10 min-h-[44px] px-5 rounded-full text-sm font-semibold transition-colors whitespace-nowrap
-               {{ $active === $item['key']
-                   ? 'bg-brand-text text-white'
-                   : 'bg-white border border-brand-border-light text-brand-secondary-text hover:text-brand-text' }}">
-            {{ $item['label'] }}
-        </a>
-    @endforeach
+{{-- Mobile header: tabs + sign out always visible --}}
+<div class="md:hidden mb-5">
+    <div class="flex items-center gap-2 mb-3">
+        {{-- Scrollable tabs --}}
+        <nav class="flex overflow-x-auto gap-1 flex-1 min-w-0" style="scrollbar-width:none">
+            @php
+            $mobileItems = [
+                ['route' => 'account.profile',   'label' => 'Profile',   'key' => 'profile'],
+                ['route' => 'account.orders',    'label' => 'My Orders', 'key' => 'orders'],
+                ['route' => 'account.addresses', 'label' => 'Addresses', 'key' => 'addresses'],
+            ];
+            @endphp
+            @foreach($mobileItems as $item)
+                <a href="{{ route($item['route']) }}"
+                   class="shrink-0 h-10 min-h-[44px] px-5 rounded-full text-sm font-semibold transition-colors whitespace-nowrap
+                       {{ $active === $item['key']
+                           ? 'bg-brand-text text-white'
+                           : 'bg-white border border-brand-border-light text-brand-secondary-text hover:text-brand-text' }}">
+                    {{ $item['label'] }}
+                </a>
+            @endforeach
+        </nav>
 
-    {{-- Mobile logout --}}
-    <form method="POST" action="{{ route('logout') }}" class="shrink-0">
-        @csrf
-        <button type="submit"
-                class="h-10 min-h-[44px] px-5 rounded-full text-sm font-semibold whitespace-nowrap bg-white border border-brand-border-light text-brand-danger hover:bg-brand-light-red transition-colors">
-            Sign out
-        </button>
-    </form>
-</nav>
+        {{-- Sign out — always visible, never scrolls away --}}
+        <form method="POST" action="{{ route('logout') }}" class="shrink-0">
+            @csrf
+            <button type="submit"
+                    class="h-10 min-h-[44px] px-4 rounded-full text-sm font-semibold whitespace-nowrap bg-white border border-brand-border-light text-brand-danger hover:bg-brand-light-red transition-colors flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"/></svg>
+                Sign out
+            </button>
+        </form>
+    </div>
+</div>
 
 <nav class="hidden md:block w-56 shrink-0">
     <div class="bg-white rounded-2xl border border-brand-border-light overflow-hidden">

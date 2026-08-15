@@ -19,7 +19,7 @@ class AccountProfile extends Component
     #[Rule('required|email', message: 'Enter a valid email address.')]
     public string $email = '';
 
-    #[Rule('required', message: 'Enter your phone number.')]
+    #[Rule('nullable|string|max:20')]
     public string $phone = '';
 
     #[Rule('nullable|image|max:2048')]
@@ -50,6 +50,7 @@ class AccountProfile extends Component
         $data = [
             'name'  => $this->name,
             'email' => $this->email,
+            'phone' => $this->phone ?: null,
         ];
 
         if ($this->photo) {

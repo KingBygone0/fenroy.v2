@@ -33,6 +33,8 @@ class Register extends Component
 
         Auth::login($user);
         session()->regenerate();
+        // New accounts start with an empty cart — no previous guest session
+        session()->forget(['cart_items', 'cart_count', 'cart_total', 'cart_discount', 'cart_coupon', 'pending_order']);
 
         $this->redirect(route('account.profile'), navigate: true);
     }
