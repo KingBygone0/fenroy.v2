@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\OrderConfirmedMail;
+use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Services\ArkeselService;
@@ -22,6 +23,12 @@ class PaystackController extends Controller
 
         if (! $ref) {
             return response()->json(['status' => 'error', 'message' => 'No reference provided.'], 422);
+        }
+
+        // Guard against SSRF via path traversal in reference
+        if (! preg_match('/^[A-Za-z0-9\-_]+$/', $ref)) {
+            Log::warning('Paystack verify: invalid reference format', ['ref' => $ref, 'ip' => $request->ip()]);
+            return response()->json(['status' => 'error', 'message' => 'Invalid reference.'], 422);
         }
 
         $secretKey = Setting::get('paystack_secret_key') ?: config('paystack.secret_key');
@@ -48,28 +55,45 @@ class PaystackController extends Controller
         $expectedKobo = round($orderData['total'] * 100);
 
         if ($paidKobo < $expectedKobo) {
+            Log::warning('Paystack verify: amount mismatch', [
+                'paid'     => $paidKobo,
+                'expected' => $expectedKobo,
+                'ref'      => $ref,
+            ]);
             return response()->json(['status' => 'error', 'message' => 'Amount mismatch.'], 400);
         }
 
         $order = Order::create([
-            'order_number'    => 'FEN-' . strtoupper(Str::random(6)),
-            'customer_name'   => $orderData['name'],
-            'customer_email'  => $orderData['email'],
-            'customer_phone'  => $orderData['phone'],
-            'delivery_address'=> $orderData['address'] ?? '',
-            'delivery_window' => $orderData['delivery_window'] ?? '',
-            'total'           => $orderData['total'],
-            'delivery_fee'    => $orderData['delivery_fee'] ?? 0,
-            'discount'        => $orderData['discount'] ?? 0,
-            'coupon_code'     => $orderData['coupon_code'] ?? null,
-            'items'           => json_encode($orderData['items'] ?? []),
-            'status'          => 'processing',
-            'payment_status'  => 'paid',
-            'paystack_ref'    => $ref,
-            'notes'           => 'Paid via Paystack. Ref: ' . $ref,
+            'order_number'     => 'FEN-' . strtoupper(Str::random(6)),
+            'customer_name'    => $orderData['name'],
+            'customer_email'   => $orderData['email'],
+            'customer_phone'   => $orderData['phone'],
+            'delivery_address' => $orderData['address'] ?? '',
+            'delivery_window'  => $orderData['delivery_window'] ?? '',
+            'total'            => $orderData['total'],
+            'delivery_fee'     => $orderData['delivery_fee'] ?? 0,
+            'discount'         => $orderData['discount'] ?? 0,
+            'coupon_code'      => $orderData['coupon_code'] ?? null,
+            'items'            => json_encode($orderData['items'] ?? []),
+            'status'           => 'processing',
+            'payment_status'   => 'paid',
+            'paystack_ref'     => $ref,
+            'notes'            => 'Paid via Paystack. Ref: ' . $ref,
         ]);
 
-        session()->forget(['pending_order', 'cart_items', 'cart_count', 'cart_total']);
+        // Increment coupon usage so max_uses is actually enforced
+        if (! empty($orderData['coupon_code'])) {
+            Coupon::where('code', $orderData['coupon_code'])
+                ->increment('used_count');
+        }
+
+        session()->forget(['pending_order', 'cart_items', 'cart_count', 'cart_total', 'cart_discount', 'cart_coupon']);
+
+        Log::channel('single')->info('Order created after payment', [
+            'order_number' => $order->order_number,
+            'ref'          => $ref,
+            'total'        => $order->total,
+        ]);
 
         // SMS notifications
         try {
@@ -108,7 +132,14 @@ class PaystackController extends Controller
         $body          = $request->getContent();
         $webhookSecret = Setting::get('paystack_webhook_secret') ?: config('paystack.webhook_secret');
 
-        if ($signature !== hash_hmac('sha512', $body, $webhookSecret)) {
+        // Refuse all webhook calls if secret is not configured
+        if (empty($webhookSecret)) {
+            Log::error('Paystack webhook: webhook_secret not configured — rejecting all webhook calls');
+            return response('Unauthorized', 401);
+        }
+
+        if (! $signature || $signature !== hash_hmac('sha512', $body, $webhookSecret)) {
+            Log::warning('Paystack webhook: invalid signature', ['ip' => $request->ip()]);
             return response('Unauthorized', 401);
         }
 
@@ -123,6 +154,11 @@ class PaystackController extends Controller
                     'payment_status' => 'paid',
                     'status'         => 'processing',
                 ]);
+
+                // Increment coupon if not already done by verify()
+                if ($order->coupon_code) {
+                    Coupon::where('code', $order->coupon_code)->increment('used_count');
+                }
             }
         }
 

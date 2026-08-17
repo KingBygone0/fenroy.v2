@@ -4,11 +4,14 @@ namespace App\Livewire;
 
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
+use App\Models\Product;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class CartPage extends Component
 {
+    #[Locked]
     public array   $items        = [];
     public string  $couponInput  = '';
     public string  $couponError  = '';
@@ -64,14 +67,10 @@ class CartPage extends Component
         }
 
         if (! $coupon->isValid($this->subtotal)) {
-            if ($coupon->expires_at && $coupon->expires_at->isPast()) {
-                $this->couponError = 'This coupon has expired.';
-            } elseif ($coupon->max_uses && $coupon->used_count >= $coupon->max_uses) {
-                $this->couponError = 'This coupon has reached its usage limit.';
-            } elseif ($this->subtotal < $coupon->min_order) {
+            if ($this->subtotal < ($coupon->min_order ?? 0)) {
                 $this->couponError = 'Minimum order of GH₵ ' . number_format($coupon->min_order, 2) . ' required.';
             } else {
-                $this->couponError = 'This coupon is not valid.';
+                $this->couponError = 'This coupon is not valid or has expired.';
             }
             return;
         }

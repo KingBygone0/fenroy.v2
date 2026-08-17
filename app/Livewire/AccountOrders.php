@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Order;
+use App\Models\Product;
 use Livewire\Component;
 
 class AccountOrders extends Component
@@ -20,12 +21,22 @@ class AccountOrders extends Component
         $order  = $orders[$index] ?? null;
         if (! $order) return;
 
+        // Re-fetch current prices from DB — never trust historical order prices
+        $slugs    = array_filter(array_column($order['items'], 'slug'));
+        $products = Product::whereIn('slug', $slugs)->where('is_active', true)
+            ->get()->keyBy('slug');
+
         $cartItems = session('cart_items', []);
         foreach ($order['items'] as $item) {
+            $slug      = $item['slug'] ?? '';
+            $dbProduct = $products->get($slug);
+            if (! $dbProduct) continue;
+
             $found = false;
             foreach ($cartItems as &$ci) {
-                if ($ci['slug'] === ($item['slug'] ?? '')) {
-                    $ci['qty'] += $item['qty'] ?? 1;
+                if ($ci['slug'] === $slug) {
+                    $ci['qty']  += $item['qty'] ?? 1;
+                    $ci['price'] = $dbProduct->price;
                     $found = true;
                     break;
                 }
@@ -33,13 +44,13 @@ class AccountOrders extends Component
             unset($ci);
             if (! $found) {
                 $cartItems[] = [
-                    'slug'      => $item['slug'] ?? '',
-                    'name'      => $item['name'],
-                    'unit'      => $item['unit'] ?? '',
-                    'price'     => $item['price'],
-                    'old_price' => null,
+                    'slug'      => $dbProduct->slug,
+                    'name'      => $dbProduct->name,
+                    'unit'      => $dbProduct->unit ?? '',
+                    'price'     => $dbProduct->price,
+                    'old_price' => $dbProduct->old_price ?: null,
                     'qty'       => $item['qty'] ?? 1,
-                    'image'     => $item['image'] ?? '',
+                    'image'     => $dbProduct->image_url,
                 ];
             }
         }

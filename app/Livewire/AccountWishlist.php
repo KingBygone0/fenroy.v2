@@ -2,11 +2,14 @@
 
 namespace App\Livewire;
 
+use App\Models\Product;
 use App\Models\Wishlist;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class AccountWishlist extends Component
 {
+    #[Locked]
     public array $items = [];
 
     public function mount(): void
@@ -34,11 +37,15 @@ class AccountWishlist extends Component
         $item = $this->items[$index] ?? null;
         if (! $item) return;
 
+        $dbProduct = Product::where('slug', $item['slug'])->where('is_active', true)->first();
+        if (! $dbProduct) return;
+
         $cartItems = session('cart_items', []);
         $found = false;
         foreach ($cartItems as &$ci) {
             if ($ci['slug'] === $item['slug']) {
                 $ci['qty']++;
+                $ci['price'] = $dbProduct->price;
                 $found = true;
                 break;
             }
@@ -46,13 +53,13 @@ class AccountWishlist extends Component
         unset($ci);
         if (! $found) {
             $cartItems[] = [
-                'slug'      => $item['slug'],
-                'name'      => $item['name'],
-                'unit'      => $item['unit'] ?? '',
-                'price'     => $item['price'],
-                'old_price' => $item['old_price'] ?? null,
+                'slug'      => $dbProduct->slug,
+                'name'      => $dbProduct->name,
+                'unit'      => $dbProduct->unit ?? '',
+                'price'     => $dbProduct->price,
+                'old_price' => $dbProduct->old_price ?: null,
                 'qty'       => 1,
-                'image'     => $item['image'] ?? '',
+                'image'     => $dbProduct->image_url,
             ];
         }
 

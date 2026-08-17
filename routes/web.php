@@ -41,7 +41,7 @@ Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 // ── Auth ─────────────────────────────────────────────────────────
 Route::middleware('guest')->group(function () {
     Route::get('/login',    \App\Livewire\Auth\Login::class)->name('login');
-    Route::get('/register', \App\Livewire\Auth\Register::class)->name('register');
+    Route::get('/register', \App\Livewire\Auth\Register::class)->name('register')->middleware('throttle:10,1');
     Route::get('/forgot-password', \App\Livewire\Auth\ForgotPassword::class)->name('password.request');
     Route::get('/reset-password/{token}', \App\Livewire\Auth\ResetPassword::class)->name('password.reset');
 });

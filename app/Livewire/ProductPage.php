@@ -5,12 +5,17 @@ namespace App\Livewire;
 use App\Models\Product;
 use App\Support\ProductImages;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class ProductPage extends Component
 {
+    #[Locked]
     public string $slug;
+
+    #[Locked]
     public array $product = [];
+
     public int $qty = 1;
     public bool $wishlisted = false;
 
@@ -61,25 +66,29 @@ class ProductPage extends Component
 
     public function addToCart(): void
     {
+        $dbProduct = Product::where('slug', $this->slug)->where('is_active', true)->first();
+        if (! $dbProduct) return;
+
         $cartItems = session('cart_items', []);
         $found = false;
         foreach ($cartItems as &$item) {
             if ($item['slug'] === $this->slug) {
-                $item['qty'] += $this->qty;
+                $item['qty']   += $this->qty;
+                $item['price']  = $dbProduct->price;
                 $found = true;
                 break;
             }
         }
         unset($item);
-        if (!$found) {
+        if (! $found) {
             $cartItems[] = [
-                'name'      => $this->product['name'],
-                'unit'      => $this->product['unit'],
-                'price'     => $this->product['price'],
-                'old_price' => $this->product['old_price'] ?? null,
+                'name'      => $dbProduct->name,
+                'unit'      => $dbProduct->unit ?? '',
+                'price'     => $dbProduct->price,
+                'old_price' => $dbProduct->old_price ?: null,
                 'qty'       => $this->qty,
                 'slug'      => $this->slug,
-                'image'     => $this->product['image'] ?? ProductImages::get($this->slug),
+                'image'     => $dbProduct->image_url,
             ];
         }
 
