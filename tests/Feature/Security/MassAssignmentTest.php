@@ -25,19 +25,17 @@ class MassAssignmentTest extends TestCase
 
     public function test_registration_cannot_escalate_to_admin(): void
     {
-        $response = $this->post('/register', [
-            'name'                  => 'Evil User',
-            'email'                 => 'evil@example.com',
-            'password'              => 'Password123!',
-            'password_confirmation' => 'Password123!',
-            'is_admin'              => true,
-        ]);
+        // Livewire registration — password meets new 12-char+complexity rule
+        \Livewire\Livewire::test(\App\Livewire\Auth\Register::class)
+            ->set('name', 'Evil User')
+            ->set('email', 'evil@example.com')
+            ->set('password', 'EvilPass#12!')
+            ->set('password_confirmation', 'EvilPass#12!')
+            ->call('register');
 
         $user = User::where('email', 'evil@example.com')->first();
-
-        if ($user) {
-            $this->assertFalse((bool) $user->is_admin,
-                'Registration must not allow is_admin to be set');
-        }
+        $this->assertNotNull($user, 'User should have been created');
+        $this->assertFalse((bool) $user->is_admin,
+            'is_admin must not be set during registration regardless of any extra inputs');
     }
 }

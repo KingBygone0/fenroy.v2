@@ -12,9 +12,13 @@ class ForgotPassword extends Component
     #[Rule('required|email')]
     public string $email = '';
 
-    public string $status  = '';
-    public string $error   = '';
-    public bool   $sent    = false;
+    public string $status = '';
+    public string $error  = '';
+    public bool   $sent   = false;
+
+    // The same message is shown regardless of whether the account exists.
+    // Showing a different message when the email IS found leaks account existence.
+    private const GENERIC_SENT_MSG = 'If an account with that email exists, a reset link has been sent.';
 
     public function send(): void
     {
@@ -24,22 +28,17 @@ class ForgotPassword extends Component
 
         $key = 'password.reset:' . request()->ip();
         if (RateLimiter::tooManyAttempts($key, 3)) {
-            $minutes = ceil(RateLimiter::availableIn($key) / 60);
+            $minutes = (int) ceil(RateLimiter::availableIn($key) / 60);
             $this->error = "Too many requests. Try again in {$minutes} minute(s).";
             return;
         }
         RateLimiter::hit($key, 3600);
 
-        $result = Password::sendResetLink(['email' => $this->email]);
+        // Always call sendResetLink (so timing is consistent) and always show the same message.
+        Password::sendResetLink(['email' => $this->email]);
 
-        if ($result === Password::RESET_LINK_SENT) {
-            $this->sent   = true;
-            $this->status = 'We\'ve sent a password reset link to ' . $this->email . '. Check your inbox.';
-        } else {
-            // Don't reveal whether email exists — generic message
-            $this->sent   = true;
-            $this->status = 'If an account with that email exists, a reset link has been sent.';
-        }
+        $this->sent   = true;
+        $this->status = self::GENERIC_SENT_MSG;
     }
 
     public function render()

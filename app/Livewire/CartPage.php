@@ -70,7 +70,7 @@ class CartPage extends Component
             if ($this->subtotal < ($coupon->min_order ?? 0)) {
                 $this->couponError = 'Minimum order of GH₵ ' . number_format($coupon->min_order, 2) . ' required.';
             } else {
-                $this->couponError = 'This coupon is not valid or has expired.';
+                $this->couponError = 'This coupon code could not be applied.';
             }
             return;
         }

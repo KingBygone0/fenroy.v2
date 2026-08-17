@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Rule;
@@ -13,10 +14,10 @@ class AccountProfile extends Component
 {
     use WithFileUploads;
 
-    #[Rule('required|min:2', message: 'Enter your full name.')]
+    #[Rule('required|min:2|max:100', message: 'Enter your full name.')]
     public string $name = '';
 
-    #[Rule('required|email', message: 'Enter a valid email address.')]
+    #[Rule('required|email|max:254', message: 'Enter a valid email address.')]
     public string $email = '';
 
     #[Rule('nullable|string|max:20')]
@@ -25,14 +26,17 @@ class AccountProfile extends Component
     #[Rule('nullable|image|max:2048')]
     public $photo = null;
 
+    // Required only when the user is changing their email — enforced in save()
+    public string $current_password = '';
+
     public ?string $avatarUrl = null;
 
     public function mount(): void
     {
         $user = Auth::user();
-        $this->name  = $user->name  ?? '';
-        $this->email = $user->email ?? '';
-        $this->phone = $user->phone ?? '';
+        $this->name      = $user->name  ?? '';
+        $this->email     = $user->email ?? '';
+        $this->phone     = $user->phone ?? '';
         $this->avatarUrl = $user->avatar ? Storage::url($user->avatar) : null;
     }
 
@@ -47,6 +51,16 @@ class AccountProfile extends Component
         $this->validate();
 
         $user = Auth::user();
+
+        // Changing email is a privileged operation — require current password to prevent
+        // session hijacking leading to full account takeover via email change.
+        if ($this->email !== $user->email) {
+            if (empty($this->current_password) || ! Hash::check($this->current_password, $user->password)) {
+                $this->addError('current_password', 'Enter your current password to change your email address.');
+                return;
+            }
+        }
+
         $data = [
             'name'  => strip_tags($this->name),
             'email' => $this->email,
@@ -57,13 +71,15 @@ class AccountProfile extends Component
             if ($user->avatar) {
                 Storage::disk('public')->delete($user->avatar);
             }
-            $path = $this->photo->store('avatars', 'public');
+            $path           = $this->photo->store('avatars', 'public');
             $data['avatar'] = $path;
             $this->avatarUrl = Storage::url($path);
-            $this->photo = null;
+            $this->photo    = null;
         }
 
         $user->update($data);
+
+        $this->current_password = '';
 
         $this->js("window.dispatchEvent(new CustomEvent('toast', { detail: { message: 'Profile saved successfully.' } }))");
     }

@@ -38,7 +38,7 @@
             <label for="password" style="display:block; font-size:13px; font-weight:600; color:#171717; margin-bottom:6px;">Password</label>
             <div style="position:relative;">
                 <input wire:model="password"
-                       id="password" :type="show ? 'text' : 'password'" autocomplete="new-password" placeholder="Min. 8 characters"
+                       id="password" :type="show ? 'text' : 'password'" autocomplete="new-password" placeholder="Min. 12 chars, upper, lower &amp; number"
                        style="width:100%; height:44px; padding:0 44px 0 16px; border-radius:10px; background:#FFFFFF; border:1px solid {{ $errors->has('password') ? '#D32F2F' : '#D4D4D4' }}; font-size:14px; font-family:inherit; color:#171717; box-sizing:border-box; outline:none; transition:border-color 0.15s, box-shadow 0.15s;"
                        onfocus="this.style.borderColor='#E53935'; this.style.boxShadow='0 0 0 3px #FFEBEE';"
                        onblur="this.style.borderColor='{{ $errors->has('password') ? '#D32F2F' : '#D4D4D4' }}'; this.style.boxShadow='none';">

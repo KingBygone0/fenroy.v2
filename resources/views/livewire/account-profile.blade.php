@@ -94,6 +94,25 @@
             @enderror
         </div>
 
+        {{-- Current password — shown only when email is being changed --}}
+        <div class="mb-4" x-data x-show="$wire.email !== '{{ auth()->user()?->email }}'">
+            <label class="block text-[13px] font-semibold text-brand-text mb-1.5" for="profile-current-password">
+                Current password
+                <span class="font-normal text-brand-secondary-text">(required to change email)</span>
+            </label>
+            <input
+                id="profile-current-password"
+                type="password"
+                wire:model="current_password"
+                autocomplete="current-password"
+                placeholder="Enter your current password"
+                class="w-full h-11 px-4 rounded-[10px] border border-brand-input-border focus:outline-none focus:border-brand-red focus:ring-[3px] focus:ring-brand-light-red transition text-sm text-brand-text"
+            >
+            @error('current_password')
+                <p class="mt-1.5 text-xs font-medium text-brand-danger">{{ $message }}</p>
+            @enderror
+        </div>
+
         {{-- Save button --}}
         <div class="flex justify-end mt-2">
             <button
