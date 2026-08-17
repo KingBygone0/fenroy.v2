@@ -48,9 +48,9 @@ class AccountProfile extends Component
 
         $user = Auth::user();
         $data = [
-            'name'  => $this->name,
+            'name'  => strip_tags($this->name),
             'email' => $this->email,
-            'phone' => $this->phone ?: null,
+            'phone' => $this->phone ? strip_tags($this->phone) : null,
         ];
 
         if ($this->photo) {

@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
@@ -32,12 +33,14 @@ class Login extends Component
 
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
             RateLimiter::hit($key, 60);
+            Log::channel('single')->warning('Failed login attempt', ['email' => $this->email, 'ip' => request()->ip()]);
             $this->error = 'These credentials do not match our records.';
             return;
         }
 
         RateLimiter::clear($key);
         session()->regenerate();
+        Log::channel('single')->info('User logged in', ['user_id' => Auth::id(), 'ip' => request()->ip()]);
         $this->redirect(route('account.profile'), navigate: true);
     }
 

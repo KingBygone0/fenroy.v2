@@ -3,7 +3,9 @@
 namespace App\Livewire\Auth;
 
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Rule;
@@ -43,6 +45,8 @@ class ResetPassword extends Component
                      ->setRememberToken(Str::random(60));
                 $user->save();
                 event(new PasswordReset($user));
+                Auth::logoutOtherDevices($password);
+                Log::channel('single')->info('Password reset completed', ['user_id' => $user->id, 'ip' => request()->ip()]);
             }
         );
 

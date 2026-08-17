@@ -23,3 +23,39 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# ── Security Headers ────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    # HSTS — force HTTPS for 1 year, include subdomains
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Stop MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content Security Policy — restrict to same origin, allow Paystack + GA4
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.paystack.co https://www.google-analytics.com; frame-src https://js.paystack.co; font-src 'self' data:;"
+
+    # Disable CORS for all routes except the ones that need it
+    Header always unset Access-Control-Allow-Origin
+    Header always unset Access-Control-Allow-Methods
+</IfModule>
+
+# ── Limit Request Size (2MB max) ─────────────────────────────────────────────
+<IfModule mod_php.c>
+    php_value post_max_size 2M
+    php_value upload_max_filesize 2M
+</IfModule>
+
+LimitRequestBody 2097152
+
+# ── Block sensitive files from public access ─────────────────────────────────
+<FilesMatch "(\.env|\.git|composer\.(json|lock)|package\.json|webpack\.mix\.js)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

@@ -5,6 +5,7 @@ namespace App\Livewire\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
 
@@ -13,7 +14,7 @@ class Register extends Component
     #[Rule('required|string|max:100')]
     public string $name = '';
 
-    #[Rule('required|email|unique:users,email')]
+    #[Rule('required|email|unique:users,email', message: ['email.unique' => 'Unable to create account with these details.'])]
     public string $email = '';
 
     #[Rule('required|min:8|confirmed')]
@@ -26,10 +27,12 @@ class Register extends Component
         $this->validate();
 
         $user = User::create([
-            'name'     => $this->name,
+            'name'     => strip_tags($this->name),
             'email'    => $this->email,
             'password' => Hash::make($this->password),
         ]);
+
+        Log::channel('single')->info('New account registered', ['user_id' => $user->id, 'ip' => request()->ip()]);
 
         Auth::login($user);
         session()->regenerate();
