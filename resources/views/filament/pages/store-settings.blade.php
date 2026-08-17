@@ -133,13 +133,23 @@ html.dark {
                     @error('paystack_public_key') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">Secret Key</label>
-                    <input wire:model="paystack_secret_key" type="password" placeholder="sk_live_..." style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" />
+                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">
+                        Secret Key
+                        @if($paystack_secret_key_configured)
+                            <span style="font-size:11px;color:#16a34a;font-weight:400;margin-left:6px;">&#10003; configured — enter a new value to rotate</span>
+                        @endif
+                    </label>
+                    <input wire:model="paystack_secret_key" type="password" placeholder="{{ $paystack_secret_key_configured ? 'Leave blank to keep existing key' : 'sk_live_...' }}" style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" autocomplete="new-password" />
                     @error('paystack_secret_key') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">Webhook Secret</label>
-                    <input wire:model="paystack_webhook_secret" type="password" placeholder="whsec_..." style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" />
+                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">
+                        Webhook Secret
+                        @if($paystack_webhook_secret_configured)
+                            <span style="font-size:11px;color:#16a34a;font-weight:400;margin-left:6px;">&#10003; configured — enter a new value to rotate</span>
+                        @endif
+                    </label>
+                    <input wire:model="paystack_webhook_secret" type="password" placeholder="{{ $paystack_webhook_secret_configured ? 'Leave blank to keep existing secret' : 'whsec_...' }}" style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" autocomplete="new-password" />
                     @error('paystack_webhook_secret') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
                 </div>
             </div>

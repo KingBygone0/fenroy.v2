@@ -32,8 +32,13 @@ class StoreSettings extends Page
     public string $free_delivery_above  = '0';
     public string $ga4_measurement_id    = '';
     public string $paystack_public_key   = '';
-    public string $paystack_secret_key   = '';
-    public string $paystack_webhook_secret = '';
+    // Write-only fields — never populated from DB on mount() so the live key is never
+    // serialised into the Livewire snapshot that the browser receives. Leave blank to
+    // preserve the existing value; enter a new value only when rotating.
+    public string $paystack_secret_key      = '';
+    public string $paystack_webhook_secret  = '';
+    public bool   $paystack_secret_key_configured     = false;
+    public bool   $paystack_webhook_secret_configured = false;
 
     public function mount(): void
     {
@@ -51,8 +56,11 @@ class StoreSettings extends Page
         $this->free_delivery_above     = Setting::get('free_delivery_above', '0');
         $this->ga4_measurement_id      = Setting::get('ga4_measurement_id', '');
         $this->paystack_public_key     = Setting::get('paystack_public_key', '');
-        $this->paystack_secret_key     = Setting::get('paystack_secret_key', '');
-        $this->paystack_webhook_secret = Setting::get('paystack_webhook_secret', '');
+        // Secret key and webhook secret are write-only — we only indicate whether they
+        // are configured so the view can show a "••• configured" hint, but we never
+        // load the actual value into the component (would expose it in the Livewire snapshot).
+        $this->paystack_secret_key_configured     = ! empty(Setting::get('paystack_secret_key'));
+        $this->paystack_webhook_secret_configured = ! empty(Setting::get('paystack_webhook_secret'));
     }
 
     public function toggleBanner(): void
@@ -103,8 +111,17 @@ class StoreSettings extends Page
         Setting::set('free_delivery_above', $this->free_delivery_above);
         Setting::set('ga4_measurement_id', $this->ga4_measurement_id);
         Setting::set('paystack_public_key', $this->paystack_public_key);
-        Setting::set('paystack_secret_key', $this->paystack_secret_key);
-        Setting::set('paystack_webhook_secret', $this->paystack_webhook_secret);
+        // Only overwrite secrets when a new value is explicitly provided.
+        if (! empty($this->paystack_secret_key)) {
+            Setting::set('paystack_secret_key', $this->paystack_secret_key);
+            $this->paystack_secret_key                = '';
+            $this->paystack_secret_key_configured     = true;
+        }
+        if (! empty($this->paystack_webhook_secret)) {
+            Setting::set('paystack_webhook_secret', $this->paystack_webhook_secret);
+            $this->paystack_webhook_secret            = '';
+            $this->paystack_webhook_secret_configured = true;
+        }
 
         Notification::make()->title('Settings saved')->success()->send();
     }
