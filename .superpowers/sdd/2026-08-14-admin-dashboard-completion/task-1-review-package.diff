@@ -1,0 +1,115 @@
+diff --git a/app/Models/Setting.php b/app/Models/Setting.php
+new file mode 100644
+index 0000000..3fd7b2d
+--- /dev/null
++++ b/app/Models/Setting.php
+@@ -0,0 +1,28 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Support\Collection;
++
++class Setting extends Model
++{
++    protected $fillable = ['key', 'value'];
++
++    private static ?Collection $cache = null;
++
++    public static function get(string $key, mixed $default = null): mixed
++    {
++        if (static::$cache === null) {
++            static::$cache = static::all()->pluck('value', 'key');
++        }
++
++        return static::$cache->get($key, $default);
++    }
++
++    public static function set(string $key, mixed $value): void
++    {
++        static::updateOrCreate(['key' => $key], ['value' => $value]);
++        static::$cache = null;
++    }
++}
+diff --git a/database/migrations/2026_08_14_000001_create_settings_table.php b/database/migrations/2026_08_14_000001_create_settings_table.php
+new file mode 100644
+index 0000000..5cc2756
+--- /dev/null
++++ b/database/migrations/2026_08_14_000001_create_settings_table.php
+@@ -0,0 +1,23 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('settings', function (Blueprint $table) {
++            $table->id();
++            $table->string('key')->unique();
++            $table->text('value')->nullable();
++            $table->timestamps();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('settings');
++    }
++};
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 04f16fe..3863fcd 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -48,8 +48,11 @@ public function run(): void
+ 
+         foreach ($deliveryZones as $zone) {
+             DeliveryZone::create(array_merge($zone, ['is_active' => true]));
+         }
+ 
+-        $this->call(ProductSeeder::class);
++        $this->call([
++            SettingsSeeder::class,
++            ProductSeeder::class,
++        ]);
+     }
+ }
+diff --git a/database/seeders/SettingsSeeder.php b/database/seeders/SettingsSeeder.php
+new file mode 100644
+index 0000000..8458f9a
+--- /dev/null
++++ b/database/seeders/SettingsSeeder.php
+@@ -0,0 +1,29 @@
++<?php
++
++namespace Database\Seeders;
++
++use App\Models\Setting;
++use Illuminate\Database\Seeder;
++
++class SettingsSeeder extends Seeder
++{
++    public function run(): void
++    {
++        $defaults = [
++            'store_name'           => 'Fenroy Supermarket',
++            'store_tagline'        => 'Your everyday online market',
++            'contact_email'        => '',
++            'contact_phone'        => '',
++            'instagram_url'        => '',
++            'facebook_url'         => '',
++            'whatsapp_number'      => '',
++            'banner_enabled'       => '0',
++            'banner_message'       => '',
++            'minimum_order_amount' => '0',
++        ];
++
++        foreach ($defaults as $key => $value) {
++            Setting::firstOrCreate(['key' => $key], ['value' => $value]);
++        }
++    }
++}

@@ -11,7 +11,7 @@
     @php $ga4Id = \App\Models\Setting::get('ga4_measurement_id', ''); @endphp
     @if($ga4Id)
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ $ga4Id }}"></script>
-    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $ga4Id }}');</script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',@js($ga4Id));</script>
     @endif
 </head>
 <body class="bg-brand-bg font-sans text-brand-text antialiased">

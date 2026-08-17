@@ -1,0 +1,156 @@
+diff --git a/app/Filament/Pages/ImportProducts.php b/app/Filament/Pages/ImportProducts.php
+index 553b42b..2c51b97 100644
+--- a/app/Filament/Pages/ImportProducts.php
++++ b/app/Filament/Pages/ImportProducts.php
+@@ -28,61 +28,75 @@ class ImportProducts extends Page
+     public array $previewHeaders = [];
+ 
+     public int $totalRows = 0;
+ 
+     public int $created = 0;
+ 
+     public int $updated = 0;
+ 
+     public array $importErrors = [];
+ 
++    private function resolvedPath(): ?string
++    {
++        if (! $this->tempPath) {
++            return null;
++        }
++        $base = storage_path('app/imports');
++        $safe = $base . DIRECTORY_SEPARATOR . basename($this->tempPath);
++        return str_starts_with(realpath($safe) ?: '', $base) ? $safe : null;
++    }
++
+     public function goToPreview(): void
+     {
+-        if (! $this->tempPath || ! file_exists($this->tempPath)) {
++        $path = $this->resolvedPath();
++
++        if (! $path || ! file_exists($path)) {
+             Notification::make()->title('File not found. Please re-upload.')->danger()->send();
+             return;
+         }
+ 
+-        $handle = fopen($this->tempPath, 'r');
++        $handle = fopen($path, 'r');
+         $this->previewHeaders = fgetcsv($handle) ?: [];
+         $previewData = [];
+         $count = 0;
+         while (($row = fgetcsv($handle)) !== false && $count < 5) {
+             $previewData[] = $row;
+             $count++;
+         }
+         fclose($handle);
+         $this->previewRows = $previewData;
+ 
+         $this->stage = 'preview';
+     }
+ 
+     public function runImport(): void
+     {
+-        if (! $this->tempPath || ! file_exists($this->tempPath)) {
++        $path = $this->resolvedPath();
++
++        if (! $path || ! file_exists($path)) {
+             Notification::make()->title('Import file not found. Please re-upload.')->danger()->send();
+             $this->stage = 'upload';
+             return;
+         }
+ 
+         $import = new ProductsImport();
+ 
+-        $ext = strtolower(pathinfo($this->tempPath, PATHINFO_EXTENSION));
++        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+         $type = $ext === 'xlsx' ? \Maatwebsite\Excel\Excel::XLSX : \Maatwebsite\Excel\Excel::CSV;
+ 
+-        Excel::import($import, $this->tempPath, null, $type);
++        Excel::import($import, $path, null, $type);
+ 
+         $this->created      = $import->created;
+         $this->updated      = $import->updated;
+         $this->importErrors = $import->errors;
+ 
+-        @unlink($this->tempPath);
++        @unlink($path);
+         $this->tempPath = null;
+ 
+         $this->stage = 'done';
+ 
+         Notification::make()
+             ->title("Import complete: {$this->created} created, {$this->updated} updated" . (count($this->importErrors) ? ', ' . count($this->importErrors) . ' errors' : ''))
+             ->success()
+             ->send();
+     }
+ 
+diff --git a/resources/views/filament/pages/import-products.blade.php b/resources/views/filament/pages/import-products.blade.php
+index 001f5f9..7976634 100644
+--- a/resources/views/filament/pages/import-products.blade.php
++++ b/resources/views/filament/pages/import-products.blade.php
+@@ -34,22 +34,22 @@
+                             const resp = await fetch('/admin/import-products/upload', {
+                                 method: 'POST',
+                                 headers: {
+                                     'Content-Type': 'application/json',
+                                     'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content
+                                 },
+                                 body: JSON.stringify({ file: base64, name: file.name, ext })
+                             });
+                             const data = await resp.json();
+                             uploading = false;
+-                            if (data.path) {
+-                                await $wire.set('tempPath', data.path);
++                            if (data.token) {
++                                await $wire.set('tempPath', data.token);
+                                 await $wire.call('goToPreview');
+                             }
+                         };
+                         reader.readAsDataURL(file);
+                     ">
+                 <p x-show="uploading" x-text="'Uploading ' + selectedName + '...'" style="font-size:13px;color:#374151;margin-top:8px;"></p>
+             </div>
+         </div>
+         @endif
+ 
+diff --git a/routes/web.php b/routes/web.php
+index a708153..8de50b9 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -79,28 +79,30 @@
+     $order = Order::where('order_number', $orderNumber)->first();
+     return view('storefront.order-tracking', compact('order', 'orderNumber'));
+ })->name('order.track');
+ 
+ // ── Paystack ─────────────────────────────────────────────────────
+ Route::post('/paystack/verify',  [PaystackController::class, 'verify'])->name('paystack.verify');
+ Route::post('/paystack/webhook', [PaystackController::class, 'webhook'])->name('paystack.webhook')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+ 
+ // ── Admin: Product bulk import upload ────────────────────────────
+ Route::post('/admin/import-products/upload', function (Request $request) {
++    abort_unless(auth()->user()?->is_admin, 403);
++
+     $request->validate([
+         'file' => 'required|string',
+         'name' => 'required|string',
+         'ext'  => 'required|in:csv,xlsx',
+     ]);
+ 
+     $content  = base64_decode($request->file);
+-    $filename = 'imports/import-' . now()->format('YmdHis') . '.' . $request->ext;
+-    $path     = storage_path('app/' . $filename);
++    $filename = 'import-' . now()->format('YmdHis') . '-' . uniqid() . '.' . $request->ext;
++    $dir      = storage_path('app/imports');
+ 
+-    if (! is_dir(dirname($path))) {
+-        mkdir(dirname($path), 0755, true);
++    if (! is_dir($dir)) {
++        mkdir($dir, 0755, true);
+     }
+ 
+-    file_put_contents($path, $content);
++    file_put_contents($dir . DIRECTORY_SEPARATOR . $filename, $content);
+ 
+-    return response()->json(['path' => $path]);
++    return response()->json(['token' => $filename]);
+ })->middleware(['auth'])->name('admin.import.upload');

@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
 use App\Models\Product;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -52,6 +53,14 @@ class CartPage extends Component
     public function applyCoupon(): void
     {
         $this->couponError = '';
+
+        $key = 'coupon.cart:' . request()->ip();
+        if (RateLimiter::tooManyAttempts($key, 10)) {
+            $this->couponError = 'Too many attempts. Please wait before trying again.';
+            return;
+        }
+        RateLimiter::hit($key, 60);
+
         $code = strtoupper(trim($this->couponInput));
 
         if ($code === '') {
@@ -61,17 +70,10 @@ class CartPage extends Component
 
         $coupon = Coupon::where('code', $code)->where('is_active', true)->first();
 
-        if (! $coupon) {
-            $this->couponError = 'Code "' . $code . '" is not valid or has expired.';
-            return;
-        }
-
-        if (! $coupon->isValid($this->subtotal)) {
-            if ($this->subtotal < ($coupon->min_order ?? 0)) {
-                $this->couponError = 'Minimum order of GH₵ ' . number_format($coupon->min_order, 2) . ' required.';
-            } else {
-                $this->couponError = 'This coupon code could not be applied.';
-            }
+        if (! $coupon || ! $coupon->isValid($this->subtotal)) {
+            // Generic message — does not reveal whether the code exists, is expired,
+            // or has a minimum threshold (prevents enumeration + oracle attacks).
+            $this->couponError = 'This code is not valid or could not be applied.';
             return;
         }
 

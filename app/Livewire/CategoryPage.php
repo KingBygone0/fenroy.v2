@@ -95,8 +95,16 @@ class CategoryPage extends Component
     {
         $query = Product::where('category', $this->slug)->where('is_active', true);
 
-        if ($this->search !== '') {
-            $query->where('name', 'like', '%' . $this->search . '%');
+        $search   = substr($this->search, 0, 100);
+        $priceMin = max(0, min(999999, (int) $this->priceMin));
+        $priceMax = max(0, min(999999, (int) $this->priceMax));
+        $types    = array_slice(
+            array_filter($this->types, fn ($t) => is_string($t) && strlen($t) <= 60),
+            0, 10
+        );
+
+        if ($search !== '') {
+            $query->where('name', 'like', '%' . $search . '%');
         }
         if ($this->inStockOnly) {
             $query->where('stock', '>', 0);
@@ -104,10 +112,10 @@ class CategoryPage extends Component
         if ($this->onSaleOnly) {
             $query->whereNotNull('old_price');
         }
-        if (!empty($this->types)) {
-            $query->whereIn('type', $this->types);
+        if (!empty($types)) {
+            $query->whereIn('type', $types);
         }
-        $query->whereBetween('price', [$this->priceMin, $this->priceMax]);
+        $query->whereBetween('price', [$priceMin, $priceMax]);
 
         match ($this->sort) {
             'price-asc'  => $query->orderBy('price'),

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,12 +16,20 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        User::create([
-            'name'     => 'King',
-            'email'    => 'king@fenroy.com',
-            'password' => Hash::make('password'),
-            'is_admin' => true,
-        ]);
+        $adminEmail = env('ADMIN_EMAIL', 'admin@fenroy.shop');
+        if (! User::where('email', $adminEmail)->exists()) {
+            $adminPassword = env('ADMIN_PASSWORD') ?: Str::random(20);
+            User::create([
+                'name'     => env('ADMIN_NAME', 'Admin'),
+                'email'    => $adminEmail,
+                'password' => Hash::make($adminPassword),
+                'is_admin' => true,
+            ]);
+            $this->command->warn("Admin account created: {$adminEmail}");
+            if (! env('ADMIN_PASSWORD')) {
+                $this->command->warn("Generated password: {$adminPassword} — save this now, it will not be shown again.");
+            }
+        }
 
         $categories = [
             ['name' => 'Fruits & Vegetables', 'slug' => 'fruits-vegetables', 'icon' => '🥦', 'sort_order' => 1],

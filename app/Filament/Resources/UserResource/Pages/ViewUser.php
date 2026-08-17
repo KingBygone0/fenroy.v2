@@ -52,9 +52,9 @@ class ViewUser extends ViewRecord
             $color = $statusColor[$o->status] ?? '#6b7280';
             $payColor = $o->payment_status === 'paid' ? '#16a34a' : ($o->payment_status === 'failed' ? '#ef4444' : '#f59e0b');
             $rows .= '<tr>'
-                . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;font-weight:600;color:var(--c-text);">' . htmlspecialchars($o->order_number) . '</td>'
-                . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;"><span style="background:' . $color . '22;color:' . $color . ';padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;">' . ucfirst(str_replace('-', ' ', $o->status)) . '</span></td>'
-                . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;"><span style="background:' . $payColor . '22;color:' . $payColor . ';padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;">' . ucfirst($o->payment_status) . '</span></td>'
+                . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;font-weight:600;color:var(--c-text);">' . htmlspecialchars($o->order_number, ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;"><span style="background:' . $color . '22;color:' . $color . ';padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;">' . htmlspecialchars(ucfirst(str_replace('-', ' ', $o->status)), ENT_QUOTES, 'UTF-8') . '</span></td>'
+                . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;"><span style="background:' . $payColor . '22;color:' . $payColor . ';padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;">' . htmlspecialchars(ucfirst($o->payment_status), ENT_QUOTES, 'UTF-8') . '</span></td>'
                 . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;font-weight:600;color:var(--c-text);">GH₵ ' . number_format($o->total, 2) . '</td>'
                 . '<td style="padding:10px 12px;border-bottom:1px solid var(--c-divider);font-size:14px;color:var(--c-muted);">' . $o->created_at->format('d M Y, H:i') . '</td>'
                 . '</tr>';

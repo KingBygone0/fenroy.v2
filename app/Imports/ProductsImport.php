@@ -109,12 +109,13 @@ class ProductsImport implements ToCollection, WithHeadingRow
             $unitRaw     = $this->get($row, 'unit');
             $isActiveRaw = $this->get($row, 'is_active');
 
+            $rawName = strip_tags(trim((string) $this->get($row, 'name')));
             $data = [
-                'name'           => trim((string) $this->get($row, 'name')),
-                'slug'           => Str::slug(trim((string) $this->get($row, 'name'))),
-                'unit'           => $unitRaw ? trim((string) $unitRaw) : 'piece',
-                'type'           => trim((string) ($this->get($row, 'type') ?? 'grocery')) ?: 'grocery',
-                'description'    => trim((string) ($this->get($row, 'description') ?? '')),
+                'name'           => $rawName,
+                'slug'           => Str::slug($rawName),
+                'unit'           => $unitRaw ? strip_tags(trim((string) $unitRaw)) : 'piece',
+                'type'           => strip_tags(trim((string) ($this->get($row, 'type') ?? 'grocery')) ?: 'grocery'),
+                'description'    => strip_tags(trim((string) ($this->get($row, 'description') ?? ''))),
                 'category'       => $category,
                 'price'          => (float) $price,
                 'old_price'      => ($oldPrice !== null && is_numeric($oldPrice)) ? (float) $oldPrice : null,

@@ -169,18 +169,7 @@ class ProductPage extends Component
             ];
         }
 
-        // Fallback for slugs not yet in DB
-        $name = str($slug)->replace('-', ' ')->title()->value();
-        return [
-            'name' => $name, 'unit' => '1 pack', 'unit_note' => null,
-            'price' => 24.00, 'old_price' => 30.00, 'stock' => 12, 'sku' => 'GEN-0000',
-            'rating' => 4.5, 'rating_count' => 0,
-            'description' => "Quality {$name} from trusted suppliers, checked for freshness before every delivery.",
-            'info' => ['Category' => 'Groceries', 'Storage' => 'See packaging'],
-            'image'   => ProductImages::get($slug),
-            'images'  => [ProductImages::get($slug)],
-            'reviews' => [],
-        ];
+        abort(404);
     }
 
     private function relatedProducts(): array

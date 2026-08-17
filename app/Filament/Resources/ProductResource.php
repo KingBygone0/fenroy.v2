@@ -53,6 +53,8 @@ class ProductResource extends Resource
                 ->image()
                 ->disk('public')
                 ->directory('products')
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+                ->maxSize(2048)
                 ->imageEditor()
                 ->imagePreviewHeight('120')
                 ->columnSpan(2),

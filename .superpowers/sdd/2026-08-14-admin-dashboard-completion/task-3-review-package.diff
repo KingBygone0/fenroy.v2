@@ -1,0 +1,37 @@
+diff --git a/app/Filament/Resources/CouponResource.php b/app/Filament/Resources/CouponResource.php
+index ac8281b..101856e 100644
+--- a/app/Filament/Resources/CouponResource.php
++++ b/app/Filament/Resources/CouponResource.php
+@@ -3,10 +3,11 @@
+ namespace App\Filament\Resources;
+ 
+ use App\Filament\Resources\CouponResource\Pages;
+ use App\Models\Coupon;
+ use Filament\Actions\BulkActionGroup;
++use Illuminate\Support\Facades\DB;
+ use Filament\Actions\DeleteAction;
+ use Filament\Actions\DeleteBulkAction;
+ use Filament\Actions\EditAction;
+ use Filament\Forms\Components\DateTimePicker;
+ use Filament\Forms\Components\Select;
+@@ -84,10 +85,20 @@ public static function table(Table $table): Table
+                 TextColumn::make('used_count')
+                     ->label('Used / Limit')
+                     ->formatStateUsing(fn ($state, $record) =>
+                         $state . ($record->max_uses ? ' / ' . $record->max_uses : ' / ∞')
+                     ),
++                TextColumn::make('total_discount')
++                    ->label('Total Discount Given')
++                    ->getStateUsing(function ($record) {
++                        return DB::table('orders')
++                            ->where('coupon_code', $record->code)
++                            ->where('payment_status', 'paid')
++                            ->sum('discount');
++                    })
++                    ->formatStateUsing(fn ($state) => 'GH₵ ' . number_format((float) $state, 2))
++                    ->sortable(false),
+                 TextColumn::make('expires_at')->since()->placeholder('No expiry'),
+                 IconColumn::make('is_active')->boolean()->label('Active'),
+             ])
+             ->defaultSort('created_at', 'desc')
+             ->actions([EditAction::make(), DeleteAction::make()])

@@ -1,0 +1,1494 @@
+fdfef2c feat: add product bulk import (CSV/Excel) with preview and error reporting
+03452a5 fix: remove static from $view property in ViewUser (PHP 8.4 incompatibility)
+013edee feat: add read-only Wishlist and Address admin resources
+faa9288 feat: add store settings admin page with announcement banner
+ce91e75 feat: add product performance dashboard widget (top 10 by units sold)
+4f7650b feat: add customer detail view with order history and spending stats
+a43875a feat: add total discount given column to coupon list
+8ee7e69 feat: add order bulk actions (status, cancel, refund) and enhanced CSV export
+de9c098 feat: add settings key-value infrastructure
+ app/Filament/Pages/ImportProducts.php              | 100 ++++++++++++++
+ app/Filament/Pages/StoreSettings.php               |  73 +++++++++++
+ app/Filament/Resources/AddressResource.php         |  70 ++++++++++
+ .../AddressResource/Pages/ListAddresses.php        |  11 ++
+ app/Filament/Resources/CouponResource.php          |  11 ++
+ app/Filament/Resources/OrderResource.php           |  60 +++++++++
+ .../Resources/OrderResource/Pages/ListOrders.php   |  27 +++-
+ app/Filament/Resources/UserResource.php            |   7 +-
+ .../Resources/UserResource/Pages/ViewUser.php      |  91 +++++++++++++
+ app/Filament/Resources/WishlistResource.php        |  72 +++++++++++
+ .../WishlistResource/Pages/ListWishlists.php       |  11 ++
+ app/Filament/Widgets/ProductPerformanceTable.php   |  87 +++++++++++++
+ app/Imports/ProductsImport.php                     |  81 ++++++++++++
+ app/Models/Setting.php                             |  28 ++++
+ .../2026_08_14_000001_create_settings_table.php    |  23 ++++
+ database/seeders/DatabaseSeeder.php                |   5 +-
+ database/seeders/SettingsSeeder.php                |  29 +++++
+ public/templates/products-import-template.csv      |   3 +
+ .../views/filament/pages/import-products.blade.php | 143 +++++++++++++++++++++
+ .../views/filament/pages/store-settings.blade.php  |  92 +++++++++++++
+ .../user-resource/pages/view-user.blade.php        |  52 ++++++++
+ resources/views/layouts/storefront.blade.php       |  11 ++
+ routes/web.php                                     |  22 ++++
+ 23 files changed, 1104 insertions(+), 5 deletions(-)
+diff --git a/app/Filament/Pages/ImportProducts.php b/app/Filament/Pages/ImportProducts.php
+new file mode 100644
+index 0000000..553b42b
+--- /dev/null
++++ b/app/Filament/Pages/ImportProducts.php
+@@ -0,0 +1,100 @@
++<?php
++
++namespace App\Filament\Pages;
++
++use App\Imports\ProductsImport;
++use Filament\Notifications\Notification;
++use Filament\Pages\Page;
++use Maatwebsite\Excel\Facades\Excel;
++
++class ImportProducts extends Page
++{
++    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-up-tray';
++
++    protected static string|\UnitEnum|null $navigationGroup = 'Commerce';
++
++    protected static ?string $navigationLabel = 'Import Products';
++
++    protected static ?int $navigationSort = 4;
++
++    protected string $view = 'filament.pages.import-products';
++
++    public string $stage = 'upload'; // 'upload' | 'preview' | 'done'
++
++    public ?string $tempPath = null;
++
++    public array $previewRows = [];
++
++    public array $previewHeaders = [];
++
++    public int $totalRows = 0;
++
++    public int $created = 0;
++
++    public int $updated = 0;
++
++    public array $importErrors = [];
++
++    public function goToPreview(): void
++    {
++        if (! $this->tempPath || ! file_exists($this->tempPath)) {
++            Notification::make()->title('File not found. Please re-upload.')->danger()->send();
++            return;
++        }
++
++        $handle = fopen($this->tempPath, 'r');
++        $this->previewHeaders = fgetcsv($handle) ?: [];
++        $previewData = [];
++        $count = 0;
++        while (($row = fgetcsv($handle)) !== false && $count < 5) {
++            $previewData[] = $row;
++            $count++;
++        }
++        fclose($handle);
++        $this->previewRows = $previewData;
++
++        $this->stage = 'preview';
++    }
++
++    public function runImport(): void
++    {
++        if (! $this->tempPath || ! file_exists($this->tempPath)) {
++            Notification::make()->title('Import file not found. Please re-upload.')->danger()->send();
++            $this->stage = 'upload';
++            return;
++        }
++
++        $import = new ProductsImport();
++
++        $ext = strtolower(pathinfo($this->tempPath, PATHINFO_EXTENSION));
++        $type = $ext === 'xlsx' ? \Maatwebsite\Excel\Excel::XLSX : \Maatwebsite\Excel\Excel::CSV;
++
++        Excel::import($import, $this->tempPath, null, $type);
++
++        $this->created      = $import->created;
++        $this->updated      = $import->updated;
++        $this->importErrors = $import->errors;
++
++        @unlink($this->tempPath);
++        $this->tempPath = null;
++
++        $this->stage = 'done';
++
++        Notification::make()
++            ->title("Import complete: {$this->created} created, {$this->updated} updated" . (count($this->importErrors) ? ', ' . count($this->importErrors) . ' errors' : ''))
++            ->success()
++            ->send();
++    }
++
++    public function resetImport(): void
++    {
++        $this->stage          = 'upload';
++        $this->tempPath       = null;
++        $this->previewRows    = [];
++        $this->previewHeaders = [];
++        $this->totalRows      = 0;
++        $this->created        = 0;
++        $this->updated        = 0;
++        $this->importErrors   = [];
++    }
++}
+diff --git a/app/Filament/Pages/StoreSettings.php b/app/Filament/Pages/StoreSettings.php
+new file mode 100644
+index 0000000..ec9adf5
+--- /dev/null
++++ b/app/Filament/Pages/StoreSettings.php
+@@ -0,0 +1,73 @@
++<?php
++
++namespace App\Filament\Pages;
++
++use App\Models\Setting;
++use Filament\Notifications\Notification;
++use Filament\Pages\Page;
++
++class StoreSettings extends Page
++{
++    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
++
++    protected static string|\UnitEnum|null $navigationGroup = 'Administration';
++
++    protected static ?string $navigationLabel = 'Store Settings';
++
++    protected static ?int $navigationSort = 2;
++
++    protected string $view = 'filament.pages.store-settings';
++
++    public string $store_name           = '';
++    public string $store_tagline        = '';
++    public string $contact_email        = '';
++    public string $contact_phone        = '';
++    public string $instagram_url        = '';
++    public string $facebook_url         = '';
++    public string $whatsapp_number      = '';
++    public bool   $banner_enabled       = false;
++    public string $banner_message       = '';
++    public string $minimum_order_amount = '0';
++
++    public function mount(): void
++    {
++        $this->store_name           = Setting::get('store_name', '');
++        $this->store_tagline        = Setting::get('store_tagline', '');
++        $this->contact_email        = Setting::get('contact_email', '');
++        $this->contact_phone        = Setting::get('contact_phone', '');
++        $this->instagram_url        = Setting::get('instagram_url', '');
++        $this->facebook_url         = Setting::get('facebook_url', '');
++        $this->whatsapp_number      = Setting::get('whatsapp_number', '');
++        $this->banner_enabled       = (bool) Setting::get('banner_enabled', '0');
++        $this->banner_message       = Setting::get('banner_message', '');
++        $this->minimum_order_amount = Setting::get('minimum_order_amount', '0');
++    }
++
++    public function save(): void
++    {
++        $this->validate([
++            'store_name'           => 'required|string|max:100',
++            'store_tagline'        => 'nullable|string|max:150',
++            'contact_email'        => 'nullable|email|max:100',
++            'contact_phone'        => 'nullable|string|max:30',
++            'instagram_url'        => 'nullable|url|max:200',
++            'facebook_url'         => 'nullable|url|max:200',
++            'whatsapp_number'      => 'nullable|string|max:30',
++            'banner_message'       => 'nullable|string|max:300',
++            'minimum_order_amount' => 'nullable|numeric|min:0',
++        ]);
++
++        Setting::set('store_name', $this->store_name);
++        Setting::set('store_tagline', $this->store_tagline);
++        Setting::set('contact_email', $this->contact_email);
++        Setting::set('contact_phone', $this->contact_phone);
++        Setting::set('instagram_url', $this->instagram_url);
++        Setting::set('facebook_url', $this->facebook_url);
++        Setting::set('whatsapp_number', $this->whatsapp_number);
++        Setting::set('banner_enabled', $this->banner_enabled ? '1' : '0');
++        Setting::set('banner_message', $this->banner_message);
++        Setting::set('minimum_order_amount', $this->minimum_order_amount);
++
++        Notification::make()->title('Settings saved')->success()->send();
++    }
++}
+diff --git a/app/Filament/Resources/AddressResource.php b/app/Filament/Resources/AddressResource.php
+new file mode 100644
+index 0000000..c12b177
+--- /dev/null
++++ b/app/Filament/Resources/AddressResource.php
+@@ -0,0 +1,70 @@
++<?php
++
++namespace App\Filament\Resources;
++
++use App\Filament\Resources\AddressResource\Pages;
++use App\Models\Address;
++use App\Models\User;
++use Filament\Resources\Resource;
++use Filament\Schemas\Schema;
++use Filament\Tables\Columns\IconColumn;
++use Filament\Tables\Columns\TextColumn;
++use Filament\Tables\Filters\SelectFilter;
++use Filament\Tables\Table;
++
++class AddressResource extends Resource
++{
++    protected static ?string $model = Address::class;
++
++    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
++
++    protected static string|\UnitEnum|null $navigationGroup = 'Commerce';
++
++    protected static ?int $navigationSort = 9;
++
++    protected static ?string $navigationLabel = 'Addresses';
++
++    public static function form(Schema $schema): Schema
++    {
++        return $schema->components([]);
++    }
++
++    public static function table(Table $table): Table
++    {
++        return $table
++            ->defaultSort('created_at', 'desc')
++            ->columns([
++                TextColumn::make('user.name')
++                    ->label('Customer')
++                    ->searchable()
++                    ->sortable(),
++                TextColumn::make('full_name')->label('Name')->searchable(),
++                TextColumn::make('line1')->label('Street'),
++                TextColumn::make('city')->label('City'),
++                TextColumn::make('region')->label('Region')->placeholder('—'),
++                IconColumn::make('is_default')
++                    ->label('Default')
++                    ->boolean(),
++            ])
++            ->filters([
++                SelectFilter::make('user_id')
++                    ->label('Customer')
++                    ->options(User::orderBy('name')->pluck('name', 'id'))
++                    ->searchable(),
++            ])
++            ->actions([])
++            ->bulkActions([]);
++    }
++
++    public static function getPages(): array
++    {
++        return [
++            'index' => Pages\ListAddresses::route('/'),
++        ];
++    }
++
++    public static function canCreate(): bool
++    {
++        return false;
++    }
++}
+diff --git a/app/Filament/Resources/AddressResource/Pages/ListAddresses.php b/app/Filament/Resources/AddressResource/Pages/ListAddresses.php
+new file mode 100644
+index 0000000..837187e
+--- /dev/null
++++ b/app/Filament/Resources/AddressResource/Pages/ListAddresses.php
+@@ -0,0 +1,11 @@
++<?php
++
++namespace App\Filament\Resources\AddressResource\Pages;
++
++use App\Filament\Resources\AddressResource;
++use Filament\Resources\Pages\ListRecords;
++
++class ListAddresses extends ListRecords
++{
++    protected static string $resource = AddressResource::class;
++}
+diff --git a/app/Filament/Resources/CouponResource.php b/app/Filament/Resources/CouponResource.php
+index ac8281b..101856e 100644
+--- a/app/Filament/Resources/CouponResource.php
++++ b/app/Filament/Resources/CouponResource.php
+@@ -1,17 +1,18 @@
+ <?php
+ 
+ namespace App\Filament\Resources;
+ 
+ use App\Filament\Resources\CouponResource\Pages;
+ use App\Models\Coupon;
+ use Filament\Actions\BulkActionGroup;
++use Illuminate\Support\Facades\DB;
+ use Filament\Actions\DeleteAction;
+ use Filament\Actions\DeleteBulkAction;
+ use Filament\Actions\EditAction;
+ use Filament\Forms\Components\DateTimePicker;
+ use Filament\Forms\Components\Select;
+ use Filament\Forms\Components\TextInput;
+ use Filament\Forms\Components\Toggle;
+ use Filament\Resources\Resource;
+ use Filament\Schemas\Schema;
+ use Filament\Tables\Columns\IconColumn;
+@@ -79,20 +80,30 @@ public static function table(Table $table): Table
+                         $record->type === 'percent'
+                             ? $state . '%'
+                             : 'GH₵ ' . number_format($state, 2)
+                     ),
+                 TextColumn::make('min_order')->prefix('GH₵ ')->label('Min Order'),
+                 TextColumn::make('used_count')
+                     ->label('Used / Limit')
+                     ->formatStateUsing(fn ($state, $record) =>
+                         $state . ($record->max_uses ? ' / ' . $record->max_uses : ' / ∞')
+                     ),
++                TextColumn::make('total_discount')
++                    ->label('Total Discount Given')
++                    ->getStateUsing(function ($record) {
++                        return DB::table('orders')
++                            ->where('coupon_code', $record->code)
++                            ->where('payment_status', 'paid')
++                            ->sum('discount');
++                    })
++                    ->formatStateUsing(fn ($state) => 'GH₵ ' . number_format((float) $state, 2))
++                    ->sortable(false),
+                 TextColumn::make('expires_at')->since()->placeholder('No expiry'),
+                 IconColumn::make('is_active')->boolean()->label('Active'),
+             ])
+             ->defaultSort('created_at', 'desc')
+             ->actions([EditAction::make(), DeleteAction::make()])
+             ->bulkActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+     }
+ 
+     public static function getPages(): array
+     {
+diff --git a/app/Filament/Resources/OrderResource.php b/app/Filament/Resources/OrderResource.php
+index 19b3519..f66fe6f 100644
+--- a/app/Filament/Resources/OrderResource.php
++++ b/app/Filament/Resources/OrderResource.php
+@@ -6,20 +6,22 @@
+ use App\Models\Order;
+ use Filament\Actions\Action;
+ use Filament\Actions\BulkActionGroup;
+ use Filament\Actions\DeleteBulkAction;
+ use Filament\Actions\EditAction;
+ use Filament\Forms\Components\Placeholder;
+ use Filament\Forms\Components\Section;
+ use Filament\Forms\Components\Select;
+ use Filament\Forms\Components\Textarea;
+ use Filament\Forms\Components\TextInput;
++use Filament\Tables\Actions\BulkAction;
++use Illuminate\Database\Eloquent\Collection;
+ use Illuminate\Support\HtmlString;
+ use Filament\Notifications\Notification;
+ use Filament\Resources\Resource;
+ use Filament\Schemas\Schema;
+ use Filament\Tables\Columns\TextColumn;
+ use Filament\Tables\Filters\SelectFilter;
+ use Filament\Tables\Table;
+ 
+ class OrderResource extends Resource
+ {
+@@ -182,20 +184,78 @@ public static function table(Table $table): Table
+                         ];
+                         if (isset($next[$record->status])) {
+                             $record->update(['status' => $next[$record->status]]);
+                             Notification::make()->title('Status updated to ' . ucfirst($next[$record->status]))->success()->send();
+                         }
+                     }),
+                 EditAction::make(),
+             ])
+             ->bulkActions([
+                 BulkActionGroup::make([
++                    BulkAction::make('updateStatus')
++                        ->label('Update Status')
++                        ->icon('heroicon-m-arrow-path')
++                        ->form([
++                            Select::make('status')
++                                ->label('New Status')
++                                ->options([
++                                    'processing'       => 'Processing',
++                                    'picking'          => 'Picking',
++                                    'packed'           => 'Packed',
++                                    'out-for-delivery' => 'Out for Delivery',
++                                    'delivered'        => 'Delivered',
++                                    'cancelled'        => 'Cancelled',
++                                    'refunded'         => 'Refunded',
++                                ])
++                                ->required(),
++                        ])
++                        ->action(function (Collection $records, array $data): void {
++                            $records->each(fn ($record) => $record->update(['status' => $data['status']]));
++                            Notification::make()
++                                ->title(count($records) . ' order(s) updated to ' . ucfirst(str_replace('-', ' ', $data['status'])))
++                                ->success()
++                                ->send();
++                        })
++                        ->deselectRecordsAfterCompletion(),
++
++                    BulkAction::make('cancelOrders')
++                        ->label('Cancel Selected')
++                        ->icon('heroicon-m-x-circle')
++                        ->color('danger')
++                        ->requiresConfirmation()
++                        ->modalHeading('Cancel selected orders?')
++                        ->modalDescription('This will mark all selected orders as Cancelled.')
++                        ->action(function (Collection $records): void {
++                            $records->each(fn ($record) => $record->update(['status' => 'cancelled']));
++                            Notification::make()
++                                ->title(count($records) . ' order(s) cancelled')
++                                ->warning()
++                                ->send();
++                        })
++                        ->deselectRecordsAfterCompletion(),
++
++                    BulkAction::make('refundOrders')
++                        ->label('Mark as Refunded')
++                        ->icon('heroicon-m-arrow-uturn-left')
++                        ->color('gray')
++                        ->requiresConfirmation()
++                        ->modalHeading('Mark selected orders as Refunded?')
++                        ->modalDescription('This will mark all selected orders as Refunded.')
++                        ->action(function (Collection $records): void {
++                            $records->each(fn ($record) => $record->update(['status' => 'refunded']));
++                            Notification::make()
++                                ->title(count($records) . ' order(s) marked as refunded')
++                                ->success()
++                                ->send();
++                        })
++                        ->deselectRecordsAfterCompletion(),
++
+                     DeleteBulkAction::make(),
+                 ]),
+             ]);
+     }
+ 
+     public static function getPages(): array
+     {
+         return [
+             'index'  => Pages\ListOrders::route('/'),
+             'create' => Pages\CreateOrder::route('/create'),
+diff --git a/app/Filament/Resources/OrderResource/Pages/ListOrders.php b/app/Filament/Resources/OrderResource/Pages/ListOrders.php
+index 5e74090..106b1f0 100644
+--- a/app/Filament/Resources/OrderResource/Pages/ListOrders.php
++++ b/app/Filament/Resources/OrderResource/Pages/ListOrders.php
+@@ -1,47 +1,68 @@
+ <?php
+ 
+ namespace App\Filament\Resources\OrderResource\Pages;
+ 
+ use App\Filament\Resources\OrderResource;
+ use App\Models\Order;
+ use Filament\Actions\Action;
+ use Filament\Actions\CreateAction;
++use Filament\Forms\Components\DatePicker;
+ use Filament\Resources\Pages\ListRecords;
+ 
+ class ListOrders extends ListRecords
+ {
+     protected static string $resource = OrderResource::class;
+ 
+     protected function getHeaderActions(): array
+     {
+         return [
+             Action::make('exportCsv')
+                 ->label('Export CSV')
+                 ->icon('heroicon-m-arrow-down-tray')
+                 ->color('gray')
+-                ->action(function () {
+-                    $orders = Order::orderByDesc('created_at')->get();
++                ->form([
++                    DatePicker::make('from')->label('From (optional)'),
++                    DatePicker::make('to')->label('To (optional)'),
++                ])
++                ->action(function (array $data) {
++                    $query = Order::orderByDesc('created_at');
++
++                    if (!empty($data['from'])) {
++                        $query->whereDate('created_at', '>=', $data['from']);
++                    }
++                    if (!empty($data['to'])) {
++                        $query->whereDate('created_at', '<=', $data['to']);
++                    }
++
++                    $orders = $query->get();
++
+                     return response()->streamDownload(function () use ($orders) {
+                         $handle = fopen('php://output', 'w');
+-                        fputcsv($handle, ['Order #', 'Customer', 'Phone', 'Email', 'Total', 'Delivery Fee', 'Status', 'Payment', 'Address', 'Date']);
++                        fputcsv($handle, [
++                            'Order #', 'Customer', 'Phone', 'Email',
++                            'Total (GH₵)', 'Delivery Fee (GH₵)', 'Discount (GH₵)',
++                            'Status', 'Payment', 'Address', 'Notes', 'Date',
++                        ]);
+                         foreach ($orders as $o) {
+                             fputcsv($handle, [
+                                 $o->order_number,
+                                 $o->customer_name,
+                                 $o->customer_phone,
+                                 $o->customer_email,
+                                 number_format($o->total, 2),
+                                 number_format($o->delivery_fee ?? 0, 2),
++                                number_format($o->discount ?? 0, 2),
+                                 $o->status,
+                                 $o->payment_status,
+                                 $o->delivery_address,
++                                $o->notes,
+                                 $o->created_at->format('Y-m-d H:i'),
+                             ]);
+                         }
+                         fclose($handle);
+                     }, 'orders-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv']);
+                 }),
+             CreateAction::make(),
+         ];
+     }
+ }
+diff --git a/app/Filament/Resources/UserResource.php b/app/Filament/Resources/UserResource.php
+index 151e9b9..f41ed0f 100644
+--- a/app/Filament/Resources/UserResource.php
++++ b/app/Filament/Resources/UserResource.php
+@@ -1,19 +1,20 @@
+ <?php
+ 
+ namespace App\Filament\Resources;
+ 
+ use App\Filament\Resources\UserResource\Pages;
+ use App\Models\User;
+ use Filament\Actions\BulkActionGroup;
+ use Filament\Actions\DeleteBulkAction;
+ use Filament\Actions\EditAction;
++use Filament\Actions\ViewAction;
+ use Filament\Forms\Components\TextInput;
+ use Filament\Forms\Components\Toggle;
+ use Filament\Resources\Resource;
+ use Filament\Schemas\Schema;
+ use Filament\Tables\Columns\IconColumn;
+ use Filament\Tables\Columns\TextColumn;
+ use Filament\Tables\Table;
+ 
+ class UserResource extends Resource
+ {
+@@ -44,22 +45,26 @@ public static function table(Table $table): Table
+     {
+         return $table
+             ->defaultSort('created_at', 'desc')
+             ->columns([
+                 TextColumn::make('name')->searchable()->sortable(),
+                 TextColumn::make('email')->searchable()->copyable(),
+                 TextColumn::make('phone')->placeholder('—'),
+                 IconColumn::make('is_admin')->boolean()->label('Admin'),
+                 TextColumn::make('created_at')->since()->sortable()->label('Joined'),
+             ])
+-            ->actions([EditAction::make()])
++            ->actions([
++                ViewAction::make(),
++                EditAction::make(),
++            ])
+             ->bulkActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+     }
+ 
+     public static function getPages(): array
+     {
+         return [
+             'index' => Pages\ListUsers::route('/'),
++            'view'  => Pages\ViewUser::route('/{record}'),
+             'edit'  => Pages\EditUser::route('/{record}/edit'),
+         ];
+     }
+ }
+diff --git a/app/Filament/Resources/UserResource/Pages/ViewUser.php b/app/Filament/Resources/UserResource/Pages/ViewUser.php
+new file mode 100644
+index 0000000..2d35a8b
+--- /dev/null
++++ b/app/Filament/Resources/UserResource/Pages/ViewUser.php
+@@ -0,0 +1,91 @@
++<?php
++
++namespace App\Filament\Resources\UserResource\Pages;
++
++use App\Filament\Resources\UserResource;
++use App\Models\Order;
++use App\Models\User;
++use Filament\Actions\EditAction;
++use Filament\Resources\Pages\Page;
++use Illuminate\Support\HtmlString;
++
++class ViewUser extends Page
++{
++    protected static string $resource = UserResource::class;
++
++    protected string $view = 'filament.resources.user-resource.pages.view-user';
++
++    public User $record;
++
++    public function mount(int|string $record): void
++    {
++        $this->record = User::findOrFail($record);
++    }
++
++    protected function getHeaderActions(): array
++    {
++        return [
++            EditAction::make()->record($this->record),
++        ];
++    }
++
++    public function getTitle(): string
++    {
++        return $this->record->name;
++    }
++
++    public function getOrdersHtml(): HtmlString
++    {
++        $orders = Order::where('customer_email', $this->record->email)
++            ->orderByDesc('created_at')
++            ->paginate(10);
++
++        if ($orders->isEmpty()) {
++            return new HtmlString('<p style="color:#6b7280;font-size:14px;padding:12px 0;">No orders yet.</p>');
++        }
++
++        $statusColor = [
++            'processing'       => '#f59e0b',
++            'picking'          => '#3b82f6',
++            'packed'           => '#3b82f6',
++            'out-for-delivery' => '#6366f1',
++            'delivered'        => '#16a34a',
++            'cancelled'        => '#ef4444',
++            'refunded'         => '#6b7280',
++        ];
++
++        $rows = '';
++        foreach ($orders as $o) {
++            $color = $statusColor[$o->status] ?? '#6b7280';
++            $payColor = $o->payment_status === 'paid' ? '#16a34a' : ($o->payment_status === 'failed' ? '#ef4444' : '#f59e0b');
++            $rows .= '<tr>'
++                . '<td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;font-weight:600;">' . htmlspecialchars($o->order_number) . '</td>'
++                . '<td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;"><span style="background:' . $color . '1a;color:' . $color . ';padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;">' . ucfirst(str_replace('-', ' ', $o->status)) . '</span></td>'
++                . '<td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;"><span style="background:' . $payColor . '1a;color:' . $payColor . ';padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;">' . ucfirst($o->payment_status) . '</span></td>'
++                . '<td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;font-weight:600;">GH₵ ' . number_format($o->total, 2) . '</td>'
++                . '<td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#6b7280;">' . $o->created_at->format('d M Y, H:i') . '</td>'
++                . '</tr>';
++        }
++
++        $html = '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">'
++            . '<thead><tr style="background:#f9fafb;">'
++            . '<th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Order #</th>'
++            . '<th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Status</th>'
++            . '<th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Payment</th>'
++            . '<th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Total</th>'
++            . '<th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Date</th>'
++            . '</tr></thead><tbody>' . $rows . '</tbody></table>';
++
++        return new HtmlString($html);
++    }
++
++    public function getStats(): array
++    {
++        $baseQuery = Order::where('customer_email', $this->record->email);
++
++        return [
++            'total_orders' => $baseQuery->count(),
++            'total_spent'  => (clone $baseQuery)->where('payment_status', 'paid')->sum('total'),
++        ];
++    }
++}
+diff --git a/app/Filament/Resources/WishlistResource.php b/app/Filament/Resources/WishlistResource.php
+new file mode 100644
+index 0000000..e3c863e
+--- /dev/null
++++ b/app/Filament/Resources/WishlistResource.php
+@@ -0,0 +1,72 @@
++<?php
++
++namespace App\Filament\Resources;
++
++use App\Filament\Resources\WishlistResource\Pages;
++use App\Models\User;
++use App\Models\Wishlist;
++use Filament\Resources\Resource;
++use Filament\Schemas\Schema;
++use Filament\Tables\Columns\TextColumn;
++use Filament\Tables\Filters\SelectFilter;
++use Filament\Tables\Table;
++
++class WishlistResource extends Resource
++{
++    protected static ?string $model = Wishlist::class;
++
++    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-heart';
++
++    protected static string|\UnitEnum|null $navigationGroup = 'Commerce';
++
++    protected static ?int $navigationSort = 8;
++
++    protected static ?string $navigationLabel = 'Wishlists';
++
++    public static function form(Schema $schema): Schema
++    {
++        return $schema->components([]);
++    }
++
++    public static function table(Table $table): Table
++    {
++        return $table
++            ->defaultSort('created_at', 'desc')
++            ->columns([
++                TextColumn::make('user.name')
++                    ->label('Customer')
++                    ->searchable()
++                    ->sortable(),
++                TextColumn::make('user.email')
++                    ->label('Email')
++                    ->searchable(),
++                TextColumn::make('product.name')
++                    ->label('Product')
++                    ->searchable(),
++                TextColumn::make('created_at')
++                    ->label('Added')
++                    ->since()
++                    ->sortable(),
++            ])
++            ->filters([
++                SelectFilter::make('user_id')
++                    ->label('Customer')
++                    ->options(User::orderBy('name')->pluck('name', 'id'))
++                    ->searchable(),
++            ])
++            ->actions([])
++            ->bulkActions([]);
++    }
++
++    public static function getPages(): array
++    {
++        return [
++            'index' => Pages\ListWishlists::route('/'),
++        ];
++    }
++
++    public static function canCreate(): bool
++    {
++        return false;
++    }
++}
+diff --git a/app/Filament/Resources/WishlistResource/Pages/ListWishlists.php b/app/Filament/Resources/WishlistResource/Pages/ListWishlists.php
+new file mode 100644
+index 0000000..e81e816
+--- /dev/null
++++ b/app/Filament/Resources/WishlistResource/Pages/ListWishlists.php
+@@ -0,0 +1,11 @@
++<?php
++
++namespace App\Filament\Resources\WishlistResource\Pages;
++
++use App\Filament\Resources\WishlistResource;
++use Filament\Resources\Pages\ListRecords;
++
++class ListWishlists extends ListRecords
++{
++    protected static string $resource = WishlistResource::class;
++}
+diff --git a/app/Filament/Widgets/ProductPerformanceTable.php b/app/Filament/Widgets/ProductPerformanceTable.php
+new file mode 100644
+index 0000000..392073b
+--- /dev/null
++++ b/app/Filament/Widgets/ProductPerformanceTable.php
+@@ -0,0 +1,87 @@
++<?php
++
++namespace App\Filament\Widgets;
++
++use App\Models\Order;
++use App\Models\Product;
++use Filament\Tables\Columns\TextColumn;
++use Filament\Tables\Table;
++use Filament\Widgets\TableWidget as BaseWidget;
++use Illuminate\Support\Collection;
++
++class ProductPerformanceTable extends BaseWidget
++{
++    protected static ?int $sort = 5;
++
++    protected array|string|int $columnSpan = 'full';
++
++    protected static ?string $heading = 'Top Products (Last 30 Days)';
++
++    public static function canView(): bool
++    {
++        return Order::where('payment_status', 'paid')
++            ->where('created_at', '>=', now()->subDays(30))
++            ->exists();
++    }
++
++    private function getTopProducts(): Collection
++    {
++        $orders = Order::where('payment_status', 'paid')
++            ->where('created_at', '>=', now()->subDays(30))
++            ->get(['items']);
++
++        $stats = [];
++        foreach ($orders as $order) {
++            foreach ((array) $order->items as $item) {
++                $name = $item['name'] ?? 'Unknown';
++                if (! isset($stats[$name])) {
++                    $stats[$name] = ['name' => $name, 'units' => 0, 'revenue' => 0.0];
++                }
++                $qty   = (int) ($item['quantity'] ?? 0);
++                $price = (float) ($item['price'] ?? 0);
++                $stats[$name]['units']   += $qty;
++                $stats[$name]['revenue'] += $qty * $price;
++            }
++        }
++
++        usort($stats, fn ($a, $b) => $b['units'] <=> $a['units']);
++
++        return collect(array_slice($stats, 0, 10))->values();
++    }
++
++    public function table(Table $table): Table
++    {
++        $products = $this->getTopProducts();
++
++        return $table
++            ->query(
++                Product::query()->whereIn('name', $products->pluck('name')->toArray())
++            )
++            ->columns([
++                TextColumn::make('rank')
++                    ->label('#')
++                    ->getStateUsing(function ($record) use ($products) {
++                        $index = $products->search(fn ($p) => $p['name'] === $record->name);
++                        return $index !== false ? $index + 1 : '—';
++                    }),
++                TextColumn::make('name')->label('Product')->searchable(),
++                TextColumn::make('category')->label('Category')->placeholder('—'),
++                TextColumn::make('units_sold')
++                    ->label('Units Sold')
++                    ->getStateUsing(function ($record) use ($products) {
++                        $item = $products->firstWhere('name', $record->name);
++                        return $item ? $item['units'] : 0;
++                    })
++                    ->sortable(false),
++                TextColumn::make('revenue')
++                    ->label('Revenue')
++                    ->getStateUsing(function ($record) use ($products) {
++                        $item = $products->firstWhere('name', $record->name);
++                        return $item ? 'GH₵ ' . number_format($item['revenue'], 2) : 'GH₵ 0.00';
++                    })
++                    ->sortable(false),
++            ])
++            ->paginated(false)
++            ->defaultSort('name');
++    }
++}
+diff --git a/app/Imports/ProductsImport.php b/app/Imports/ProductsImport.php
+new file mode 100644
+index 0000000..f2bd676
+--- /dev/null
++++ b/app/Imports/ProductsImport.php
+@@ -0,0 +1,81 @@
++<?php
++
++namespace App\Imports;
++
++use App\Models\Category;
++use App\Models\Product;
++use Illuminate\Support\Collection;
++use Illuminate\Support\Str;
++use Maatwebsite\Excel\Concerns\ToCollection;
++use Maatwebsite\Excel\Concerns\WithHeadingRow;
++
++class ProductsImport implements ToCollection, WithHeadingRow
++{
++    public int $created  = 0;
++    public int $updated  = 0;
++    public array $errors = [];
++
++    private array $validCategories = [];
++
++    public function __construct()
++    {
++        $this->validCategories = Category::pluck('name')
++            ->map(fn ($n) => strtolower(trim($n)))
++            ->toArray();
++    }
++
++    public function collection(Collection $rows): void
++    {
++        foreach ($rows as $index => $row) {
++            $rowNum = $index + 2;
++
++            foreach (['name', 'sku', 'unit', 'price', 'stock', 'category'] as $field) {
++                if (empty($row[$field]) && $row[$field] !== '0') {
++                    $this->errors[] = "Row {$rowNum}: Missing required field '{$field}'";
++                    continue 2;
++                }
++            }
++
++            if (! in_array(strtolower(trim($row['category'])), $this->validCategories, true)) {
++                $this->errors[] = "Row {$rowNum}: Unknown category '{$row['category']}'";
++                continue;
++            }
++
++            if (! is_numeric($row['price'])) {
++                $this->errors[] = "Row {$rowNum}: Invalid price '{$row['price']}'";
++                continue;
++            }
++
++            if (! is_numeric($row['stock'])) {
++                $this->errors[] = "Row {$rowNum}: Invalid stock '{$row['stock']}'";
++                continue;
++            }
++
++            $data = [
++                'name'           => trim($row['name']),
++                'slug'           => Str::slug(trim($row['name'])),
++                'unit'           => trim($row['unit']),
++                'type'           => trim($row['type'] ?? 'grocery') ?: 'grocery',
++                'description'    => trim($row['description'] ?? ''),
++                'category'       => trim($row['category']),
++                'price'          => (float) $row['price'],
++                'old_price'      => (isset($row['old_price']) && is_numeric($row['old_price'])) ? (float) $row['old_price'] : null,
++                'stock'          => (int) $row['stock'],
++                'is_active'      => isset($row['is_active']) ? (bool)(int)$row['is_active'] : true,
++                'is_featured'    => isset($row['is_featured']) ? (bool)(int)$row['is_featured'] : false,
++                'is_best_seller' => isset($row['is_best_seller']) ? (bool)(int)$row['is_best_seller'] : false,
++            ];
++
++            $existing = Product::where('sku', trim($row['sku']))->first();
++
++            if ($existing) {
++                $existing->update($data);
++                $this->updated++;
++            } else {
++                $data['sku'] = trim($row['sku']);
++                Product::create($data);
++                $this->created++;
++            }
++        }
++    }
++}
+diff --git a/app/Models/Setting.php b/app/Models/Setting.php
+new file mode 100644
+index 0000000..3fd7b2d
+--- /dev/null
++++ b/app/Models/Setting.php
+@@ -0,0 +1,28 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Support\Collection;
++
++class Setting extends Model
++{
++    protected $fillable = ['key', 'value'];
++
++    private static ?Collection $cache = null;
++
++    public static function get(string $key, mixed $default = null): mixed
++    {
++        if (static::$cache === null) {
++            static::$cache = static::all()->pluck('value', 'key');
++        }
++
++        return static::$cache->get($key, $default);
++    }
++
++    public static function set(string $key, mixed $value): void
++    {
++        static::updateOrCreate(['key' => $key], ['value' => $value]);
++        static::$cache = null;
++    }
++}
+diff --git a/database/migrations/2026_08_14_000001_create_settings_table.php b/database/migrations/2026_08_14_000001_create_settings_table.php
+new file mode 100644
+index 0000000..5cc2756
+--- /dev/null
++++ b/database/migrations/2026_08_14_000001_create_settings_table.php
+@@ -0,0 +1,23 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('settings', function (Blueprint $table) {
++            $table->id();
++            $table->string('key')->unique();
++            $table->text('value')->nullable();
++            $table->timestamps();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('settings');
++    }
++};
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 04f16fe..3863fcd 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -43,13 +43,16 @@ public function run(): void
+             ['name' => 'KNUST · Kotei · Ayigya',            'areas' => ['KNUST', 'Kotei', 'Ayigya', 'Bomso'],           'fee' => 15.00, 'free_above' => 250.00, 'sort_order' => 3],
+             ['name' => 'Asokore Mampong · Airport Area',    'areas' => ['Asokore Mampong', 'Kumasi Airport'],           'fee' => 18.00, 'free_above' => 300.00, 'sort_order' => 4],
+             ['name' => 'Ejisu · Juaben',                    'areas' => ['Ejisu', 'Juaben'],                             'fee' => 28.00, 'free_above' => 400.00, 'sort_order' => 5],
+             ['name' => 'Offinso · Bekwai Road',             'areas' => ['Offinso', 'Bekwai Road', 'Manhyia'],           'fee' => 35.00, 'free_above' => null,   'sort_order' => 6],
+         ];
+ 
+         foreach ($deliveryZones as $zone) {
+             DeliveryZone::create(array_merge($zone, ['is_active' => true]));
+         }
+ 
+-        $this->call(ProductSeeder::class);
++        $this->call([
++            SettingsSeeder::class,
++            ProductSeeder::class,
++        ]);
+     }
+ }
+diff --git a/database/seeders/SettingsSeeder.php b/database/seeders/SettingsSeeder.php
+new file mode 100644
+index 0000000..8458f9a
+--- /dev/null
++++ b/database/seeders/SettingsSeeder.php
+@@ -0,0 +1,29 @@
++<?php
++
++namespace Database\Seeders;
++
++use App\Models\Setting;
++use Illuminate\Database\Seeder;
++
++class SettingsSeeder extends Seeder
++{
++    public function run(): void
++    {
++        $defaults = [
++            'store_name'           => 'Fenroy Supermarket',
++            'store_tagline'        => 'Your everyday online market',
++            'contact_email'        => '',
++            'contact_phone'        => '',
++            'instagram_url'        => '',
++            'facebook_url'         => '',
++            'whatsapp_number'      => '',
++            'banner_enabled'       => '0',
++            'banner_message'       => '',
++            'minimum_order_amount' => '0',
++        ];
++
++        foreach ($defaults as $key => $value) {
++            Setting::firstOrCreate(['key' => $key], ['value' => $value]);
++        }
++    }
++}
+diff --git a/public/templates/products-import-template.csv b/public/templates/products-import-template.csv
+new file mode 100644
+index 0000000..c4853d2
+--- /dev/null
++++ b/public/templates/products-import-template.csv
+@@ -0,0 +1,3 @@
++name,sku,unit,type,description,category,price,old_price,stock,is_active,is_featured,is_best_seller
++Tomatoes (1kg),TOM-001,1kg pack,grocery,Fresh ripe tomatoes,Vegetables,5.99,,50,1,0,0
++Chicken Breast,CHK-001,500g pack,grocery,Boneless chicken breast,Meat & Fish,25.00,28.00,30,1,1,0
+diff --git a/resources/views/filament/pages/import-products.blade.php b/resources/views/filament/pages/import-products.blade.php
+new file mode 100644
+index 0000000..001f5f9
+--- /dev/null
++++ b/resources/views/filament/pages/import-products.blade.php
+@@ -0,0 +1,143 @@
++<x-filament-panels::page>
++    <div class="space-y-6">
++
++        {{-- Template download --}}
++        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;">
++            <div>
++                <p style="font-size:14px;font-weight:600;color:#15803d;">Download Template</p>
++                <p style="font-size:13px;color:#166534;margin-top:2px;">Use this CSV template to prepare your product data correctly.</p>
++            </div>
++            <a href="/templates/products-import-template.csv" download
++               style="padding:8px 16px;background:#16a34a;color:white;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
++                Download Template
++            </a>
++        </div>
++
++        {{-- STAGE: Upload --}}
++        @if($stage === 'upload')
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:4px;">Upload Product File</h2>
++            <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">Accepted: <strong>CSV</strong> or <strong>Excel (.xlsx)</strong>. Max 5MB. Existing products matched by SKU will be updated.</p>
++
++            <div x-data="{ uploading: false, selectedName: '' }">
++                <input type="file" accept=".csv,.xlsx"
++                    style="display:block;width:100%;padding:10px;border:2px dashed #d1d5db;border-radius:8px;font-size:14px;cursor:pointer;background:#fafafa;"
++                    x-on:change="
++                        const file = $event.target.files[0];
++                        if (!file) return;
++                        selectedName = file.name;
++                        uploading = true;
++                        const reader = new FileReader();
++                        reader.onload = async (e) => {
++                            const base64 = e.target.result.split(',')[1];
++                            const ext = file.name.split('.').pop().toLowerCase();
++                            const resp = await fetch('/admin/import-products/upload', {
++                                method: 'POST',
++                                headers: {
++                                    'Content-Type': 'application/json',
++                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content
++                                },
++                                body: JSON.stringify({ file: base64, name: file.name, ext })
++                            });
++                            const data = await resp.json();
++                            uploading = false;
++                            if (data.path) {
++                                await $wire.set('tempPath', data.path);
++                                await $wire.call('goToPreview');
++                            }
++                        };
++                        reader.readAsDataURL(file);
++                    ">
++                <p x-show="uploading" x-text="'Uploading ' + selectedName + '...'" style="font-size:13px;color:#374151;margin-top:8px;"></p>
++            </div>
++        </div>
++        @endif
++
++        {{-- STAGE: Preview --}}
++        @if($stage === 'preview')
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:4px;">Preview (first {{ count($previewRows) }} rows)</h2>
++            <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">Review the data below, then click Import to process the file.</p>
++
++            @if(count($previewRows) > 0)
++            <div style="overflow-x:auto;">
++                <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;font-size:13px;">
++                    <thead>
++                        <tr style="background:#f9fafb;">
++                            @foreach($previewHeaders as $header)
++                            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;font-size:11px;white-space:nowrap;">{{ $header }}</th>
++                            @endforeach
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @foreach($previewRows as $row)
++                        <tr>
++                            @foreach($row as $cell)
++                            <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#374151;white-space:nowrap;">{{ $cell }}</td>
++                            @endforeach
++                        </tr>
++                        @endforeach
++                    </tbody>
++                </table>
++            </div>
++            @else
++            <p style="color:#ef4444;font-size:13px;">No data rows found in the file.</p>
++            @endif
++
++            <div style="margin-top:20px;display:flex;gap:12px;">
++                <button wire:click="runImport" style="padding:10px 20px;background:#E53935;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
++                    Confirm Import
++                </button>
++                <button wire:click="resetImport" style="padding:10px 20px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
++                    Cancel
++                </button>
++            </div>
++        </div>
++        @endif
++
++        {{-- STAGE: Done --}}
++        @if($stage === 'done')
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">Import Complete</h2>
++
++            <div style="display:flex;gap:16px;margin-bottom:20px;">
++                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 24px;text-align:center;">
++                    <p style="font-size:28px;font-weight:800;color:#15803d;">{{ $created }}</p>
++                    <p style="font-size:13px;color:#166534;margin-top:4px;">Products Created</p>
++                </div>
++                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 24px;text-align:center;">
++                    <p style="font-size:28px;font-weight:800;color:#1d4ed8;">{{ $updated }}</p>
++                    <p style="font-size:13px;color:#1e40af;margin-top:4px;">Products Updated</p>
++                </div>
++                @if(count($importErrors) > 0)
++                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 24px;text-align:center;">
++                    <p style="font-size:28px;font-weight:800;color:#b91c1c;">{{ count($importErrors) }}</p>
++                    <p style="font-size:13px;color:#991b1b;margin-top:4px;">Rows Skipped</p>
++                </div>
++                @endif
++            </div>
++
++            @if(count($importErrors) > 0)
++            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-bottom:20px;">
++                <p style="font-size:13px;font-weight:600;color:#b91c1c;margin-bottom:8px;">Skipped rows:</p>
++                <ul style="list-style:disc;padding-left:20px;font-size:13px;color:#991b1b;">
++                    @foreach($importErrors as $error)
++                    <li>{{ $error }}</li>
++                    @endforeach
++                </ul>
++            </div>
++            @endif
++
++            <div style="display:flex;gap:12px;">
++                <button wire:click="resetImport" style="padding:10px 20px;background:#E53935;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
++                    Import Another File
++                </button>
++                <a href="/admin/products" style="padding:10px 20px;background:#f3f4f6;color:#374151;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
++                    View Products
++                </a>
++            </div>
++        </div>
++        @endif
++
++    </div>
++</x-filament-panels::page>
+diff --git a/resources/views/filament/pages/store-settings.blade.php b/resources/views/filament/pages/store-settings.blade.php
+new file mode 100644
+index 0000000..4f88eaa
+--- /dev/null
++++ b/resources/views/filament/pages/store-settings.blade.php
+@@ -0,0 +1,92 @@
++<x-filament-panels::page>
++    <form wire:submit.prevent="save" class="space-y-6">
++
++        {{-- Store Identity --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">Store Identity</h2>
++            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Store Name <span style="color:#ef4444;">*</span></label>
++                    <input wire:model="store_name" type="text" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                    @error('store_name') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
++                </div>
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Tagline</label>
++                    <input wire:model="store_tagline" type="text" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                </div>
++            </div>
++        </div>
++
++        {{-- Contact --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">Contact</h2>
++            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Email</label>
++                    <input wire:model="contact_email" type="email" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                    @error('contact_email') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
++                </div>
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Phone</label>
++                    <input wire:model="contact_phone" type="text" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                </div>
++            </div>
++        </div>
++
++        {{-- Social Links --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">Social Links</h2>
++            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Instagram URL</label>
++                    <input wire:model="instagram_url" type="url" placeholder="https://instagram.com/..." style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                    @error('instagram_url') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
++                </div>
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Facebook URL</label>
++                    <input wire:model="facebook_url" type="url" placeholder="https://facebook.com/..." style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                    @error('facebook_url') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
++                </div>
++                <div>
++                    <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">WhatsApp Number</label>
++                    <input wire:model="whatsapp_number" type="text" placeholder="+233..." style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                </div>
++            </div>
++        </div>
++
++        {{-- Announcement Banner --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">Announcement Banner</h2>
++            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
++                <label style="font-size:13px;font-weight:500;color:#374151;">Enable Banner</label>
++                <button type="button" wire:click="$toggle('banner_enabled')"
++                    style="position:relative;display:inline-flex;width:44px;height:24px;border-radius:9999px;transition:background .2s;background:{{ $banner_enabled ? '#E53935' : '#d1d5db' }};border:none;cursor:pointer;">
++                    <span style="position:absolute;top:2px;left:{{ $banner_enabled ? '22px' : '2px' }};width:20px;height:20px;background:white;border-radius:9999px;transition:left .2s;"></span>
++                </button>
++                <span style="font-size:13px;color:#6b7280;">{{ $banner_enabled ? 'On' : 'Off' }}</span>
++            </div>
++            <div>
++                <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Banner Message</label>
++                <textarea wire:model="banner_message" rows="2" placeholder="e.g. Free delivery this weekend on orders over GH₵ 100!" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;resize:vertical;"></textarea>
++                @error('banner_message') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
++            </div>
++        </div>
++
++        {{-- Order Rules --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">Order Rules</h2>
++            <div style="max-width:240px;">
++                <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Minimum Order Amount (GH₵)</label>
++                <input wire:model="minimum_order_amount" type="number" min="0" step="0.01" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none;" />
++                @error('minimum_order_amount') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
++            </div>
++        </div>
++
++        <div>
++            <button type="submit" style="padding:10px 24px;background:#E53935;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
++                Save Settings
++            </button>
++        </div>
++
++    </form>
++</x-filament-panels::page>
+diff --git a/resources/views/filament/resources/user-resource/pages/view-user.blade.php b/resources/views/filament/resources/user-resource/pages/view-user.blade.php
+new file mode 100644
+index 0000000..24d667b
+--- /dev/null
++++ b/resources/views/filament/resources/user-resource/pages/view-user.blade.php
+@@ -0,0 +1,52 @@
++<x-filament-panels::page>
++    <div class="space-y-6">
++
++        {{-- Profile card --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:16px;font-weight:700;color:#111827;margin-bottom:16px;">Profile</h2>
++            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
++                <div>
++                    <p style="font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Name</p>
++                    <p style="font-size:15px;color:#111827;font-weight:500;">{{ $this->record->name }}</p>
++                </div>
++                <div>
++                    <p style="font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Email</p>
++                    <p style="font-size:15px;color:#111827;font-weight:500;">{{ $this->record->email }}</p>
++                </div>
++                <div>
++                    <p style="font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Phone</p>
++                    <p style="font-size:15px;color:#111827;font-weight:500;">{{ $this->record->phone ?? '—' }}</p>
++                </div>
++                <div>
++                    <p style="font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Joined</p>
++                    <p style="font-size:15px;color:#111827;font-weight:500;">{{ $this->record->created_at->format('d M Y') }}</p>
++                </div>
++                @if($this->record->is_admin)
++                <div>
++                    <span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:600;">Admin</span>
++                </div>
++                @endif
++            </div>
++        </div>
++
++        {{-- Stats --}}
++        @php $stats = $this->getStats(); @endphp
++        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
++            <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;text-align:center;">
++                <p style="font-size:28px;font-weight:800;color:#111827;">{{ $stats['total_orders'] }}</p>
++                <p style="font-size:13px;color:#6b7280;margin-top:4px;">Total Orders</p>
++            </div>
++            <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;text-align:center;">
++                <p style="font-size:28px;font-weight:800;color:#111827;">GH₵ {{ number_format($stats['total_spent'], 2) }}</p>
++                <p style="font-size:13px;color:#6b7280;margin-top:4px;">Total Spent (paid orders)</p>
++            </div>
++        </div>
++
++        {{-- Order history --}}
++        <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
++            <h2 style="font-size:16px;font-weight:700;color:#111827;margin-bottom:16px;">Order History</h2>
++            {!! $this->getOrdersHtml() !!}
++        </div>
++
++    </div>
++</x-filament-panels::page>
+diff --git a/resources/views/layouts/storefront.blade.php b/resources/views/layouts/storefront.blade.php
+index 0f4822e..7239ba3 100644
+--- a/resources/views/layouts/storefront.blade.php
++++ b/resources/views/layouts/storefront.blade.php
+@@ -4,20 +4,31 @@
+     <meta charset="utf-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+     <meta name="csrf-token" content="{{ csrf_token() }}">
+     <title>{{ $title ?? 'Fenroy — Online Supermarket' }}</title>
+     <meta name="description" content="{{ $description ?? 'Shop fresh groceries, household essentials and more. Delivered fast.' }}">
+     @vite(['resources/css/app.css', 'resources/js/app.js'])
+     @livewireStyles
+ </head>
+ <body class="bg-brand-bg font-sans text-brand-text antialiased">
+ 
++    {{-- ─── Announcement Banner ──────────────────────────────── --}}
++@php
++    $bannerEnabled = \App\Models\Setting::get('banner_enabled', '0');
++    $bannerMessage = \App\Models\Setting::get('banner_message', '');
++@endphp
++@if($bannerEnabled === '1' && $bannerMessage)
++<div class="w-full bg-brand-red text-white text-center text-sm font-medium py-2 px-4">
++    {{ $bannerMessage }}
++</div>
++@endif
++
+     {{-- ═══════════════════════════════════════════════════════════
+          DESKTOP HEADER  (hidden on mobile)
+     ═══════════════════════════════════════════════════════════ --}}
+     <header class="hidden md:block sticky top-0 z-40 bg-white border-b border-brand-border-light">
+         <div class="max-w-[1280px] mx-auto px-14 h-[72px] flex items-center gap-8">
+ 
+             {{-- Logo --}}
+             <a href="{{ route('home') }}" class="shrink-0">
+                 <img src="{{ asset('images/fenroy-logo.png') }}" alt="Fenroy" class="h-8 w-auto">
+             </a>
+diff --git a/routes/web.php b/routes/web.php
+index c87072d..a708153 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,14 +1,15 @@
+ <?php
+ 
+ use App\Http\Controllers\PaystackController;
+ use App\Models\Order;
++use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Auth;
+ use Illuminate\Support\Facades\Route;
+ use App\Http\Controllers\Storefront\HomeController;
+ use App\Http\Controllers\Storefront\CategoryController;
+ use App\Http\Controllers\Storefront\ProductController;
+ use App\Http\Controllers\Storefront\CartController;
+ use App\Http\Controllers\Storefront\CheckoutController;
+ use App\Http\Controllers\Storefront\SearchController;
+ use App\Http\Controllers\Storefront\AccountController;
+ 
+@@ -75,10 +76,31 @@
+ })->name('order.confirmed');
+ 
+ Route::get('/order/track/{orderNumber}', function ($orderNumber) {
+     $order = Order::where('order_number', $orderNumber)->first();
+     return view('storefront.order-tracking', compact('order', 'orderNumber'));
+ })->name('order.track');
+ 
+ // ── Paystack ─────────────────────────────────────────────────────
+ Route::post('/paystack/verify',  [PaystackController::class, 'verify'])->name('paystack.verify');
+ Route::post('/paystack/webhook', [PaystackController::class, 'webhook'])->name('paystack.webhook')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
++
++// ── Admin: Product bulk import upload ────────────────────────────
++Route::post('/admin/import-products/upload', function (Request $request) {
++    $request->validate([
++        'file' => 'required|string',
++        'name' => 'required|string',
++        'ext'  => 'required|in:csv,xlsx',
++    ]);
++
++    $content  = base64_decode($request->file);
++    $filename = 'imports/import-' . now()->format('YmdHis') . '.' . $request->ext;
++    $path     = storage_path('app/' . $filename);
++
++    if (! is_dir(dirname($path))) {
++        mkdir(dirname($path), 0755, true);
++    }
++
++    file_put_contents($path, $content);
++
++    return response()->json(['path' => $path]);
++})->middleware(['auth'])->name('admin.import.upload');

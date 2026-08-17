@@ -8,7 +8,8 @@ class Coupon extends Model
 {
     protected $fillable = [
         'code', 'type', 'value', 'min_order',
-        'max_uses', 'used_count', 'expires_at', 'is_active',
+        'max_uses', 'expires_at', 'is_active',
+        // used_count excluded — only modified via ->increment('used_count'), never mass-assigned
     ];
 
     protected function casts(): array

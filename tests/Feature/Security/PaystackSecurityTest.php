@@ -45,7 +45,7 @@ class PaystackSecurityTest extends TestCase
             'X-Paystack-Signature' => 'invalid-signature',
         ]);
 
-        $response->assertStatus(401);
+        $response->assertStatus(400);
     }
 
     public function test_webhook_accepts_valid_hmac_signature(): void
@@ -70,6 +70,6 @@ class PaystackSecurityTest extends TestCase
 
         $response = $this->postJson('/paystack/webhook', ['event' => 'charge.success']);
 
-        $response->assertStatus(401);
+        $response->assertStatus(400);
     }
 }

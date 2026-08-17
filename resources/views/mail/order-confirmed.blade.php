@@ -19,13 +19,16 @@
         .items-table th { text-align: left; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 0 8px; border-bottom: 1px solid #E8E8E8; }
         .items-table td { padding: 10px 0; font-size: 14px; border-bottom: 1px solid #F2F2F2; vertical-align: top; }
         .items-table .price { text-align: right; font-weight: 600; white-space: nowrap; }
-        .track-btn { display: block; text-align: center; background: #C8102E; color: #fff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 14px 24px; border-radius: 999px; margin-bottom: 24px; }
+        .btn { display: block; text-align: center; color: #fff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 14px 24px; border-radius: 999px; margin-bottom: 12px; }
+        .btn-red    { background: #C8102E; }
+        .btn-dark   { background: #222; }
         .footer { padding: 20px 32px; border-top: 1px solid #F2F2F2; text-align: center; font-size: 12px; color: #999; }
     </style>
 </head>
 <body>
 <div class="wrap">
     <div class="header">
+        <img src="https://fenroy.shop/images/fenroy-logo-white.png" alt="Fenroy" style="height:44px;width:auto;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;">
         <h1>Order Confirmed!</h1>
         <p>Order #{{ $order->order_number }}</p>
     </div>
@@ -87,9 +90,10 @@
             @endif
         </div>
 
-        <a href="{{ route('order.track', $order->order_number) }}" class="track-btn">Track your order</a>
+        <a href="{{ route('order.track', $order->order_number) }}" class="btn btn-red">Track your order</a>
+        <a href="{{ route('order.receipt', $order->order_number) }}" class="btn btn-dark">Download Receipt</a>
 
-        <p style="font-size:14px;color:#666;margin:0;">
+        <p style="font-size:14px;color:#666;margin:12px 0 0;">
             Questions? Reply to this email or WhatsApp us. We're happy to help.
         </p>
     </div>

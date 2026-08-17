@@ -6,6 +6,7 @@ use App\Models\Order;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Rule;
 
 class RevenueReport extends Page
 {
@@ -15,13 +16,18 @@ class RevenueReport extends Page
 
     protected static ?string $navigationLabel = 'Revenue Report';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 5;
 
     protected string $view = 'filament.pages.revenue-report';
 
+    #[Rule('required|date_format:Y-m-d')]
     public string $dateFrom = '';
-    public string $dateTo   = '';
-    public string $groupBy  = 'day';
+
+    #[Rule('required|date_format:Y-m-d|after_or_equal:dateFrom')]
+    public string $dateTo = '';
+
+    #[Rule('required|in:day,week,month')]
+    public string $groupBy = 'day';
 
     public function mount(): void
     {
@@ -32,6 +38,12 @@ class RevenueReport extends Page
     #[Computed]
     public function reportData(): \Illuminate\Support\Collection
     {
+        // Guard against malformed dates before they reach the DB
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->dateFrom) ||
+            ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->dateTo)) {
+            return collect();
+        }
+
         $from = $this->dateFrom . ' 00:00:00';
         $to   = $this->dateTo . ' 23:59:59';
 
@@ -60,6 +72,11 @@ class RevenueReport extends Page
 
     public function getTotals(): array
     {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->dateFrom) ||
+            ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->dateTo)) {
+            return ['orders' => 0, 'revenue' => 0, 'net_revenue' => 0, 'delivery' => 0, 'avg_order' => 0, 'prev_revenue' => 0, 'change' => 0];
+        }
+
         $from = Carbon::parse($this->dateFrom);
         $to   = Carbon::parse($this->dateTo);
         $days = max(1, $from->diffInDays($to) + 1);

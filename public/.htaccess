@@ -27,21 +27,36 @@
 # ── Security Headers ────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
     # HSTS — force HTTPS for 1 year, include subdomains
-    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
 
-    # Prevent clickjacking
+    # Prevent clickjacking (belt-and-suspenders with CSP frame-ancestors below)
     Header always set X-Frame-Options "SAMEORIGIN"
 
     # Stop MIME sniffing
     Header always set X-Content-Type-Options "nosniff"
 
-    # Referrer policy
+    # Referrer policy — send origin only to third parties, full URL within same site
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
-    # Content Security Policy — restrict to same origin, allow Paystack + GA4
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.paystack.co https://www.google-analytics.com; frame-src https://js.paystack.co; font-src 'self' data:;"
+    # Permissions Policy — restrict browser APIs this site does not use
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=()"
 
-    # Disable CORS for all routes except the ones that need it
+    # Prevent Adobe Flash/PDF cross-domain data loading
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+
+    # Content Security Policy
+    # Notes:
+    #   - 'unsafe-inline' on script-src is required by Livewire 4 and Alpine.js
+    #     (both rely on inline event handlers; nonce-based CSP would need framework changes)
+    #   - 'unsafe-inline' on style-src is required by Livewire/Filament dynamic styles
+    #   - frame-ancestors restricts who can embed this site in an iframe
+    #   - form-action prevents form POST hijacking to external URLs
+    #   - base-uri blocks <base href="..."> injection attacks
+    #   - object-src none blocks Flash/PDF plugin execution
+    #   - upgrade-insecure-requests forces mixed-content resources over HTTPS
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://paystack.com; img-src 'self' data: https:; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://api.paystack.co https://eu.i.posthog.com https://eu-assets.i.posthog.com; frame-src 'self' https://js.paystack.co https://checkout.paystack.com; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests;"
+
+    # Disable CORS — no cross-origin API consumers for this storefront
     Header always unset Access-Control-Allow-Origin
     Header always unset Access-Control-Allow-Methods
 </IfModule>
@@ -59,3 +74,15 @@ LimitRequestBody 2097152
     Order allow,deny
     Deny from all
 </FilesMatch>
+
+# ── Prevent PHP execution in uploaded file storage ───────────────────────────
+# Any file under /storage/ that has a server-side script extension is forbidden.
+# This is defence-in-depth: the application should never store files with these
+# extensions, but if an attacker bypasses upload validation this rule ensures
+# the files cannot be executed via HTTP.
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_URI} ^/storage/
+    RewriteRule \.ph(p[3-9]?|ps|t|tml|ar)$ - [F,L,NC]
+    RewriteCond %{REQUEST_URI} ^/storage/
+    RewriteRule \.(shtml|phtml|pl|py|sh|rb|cgi|asp|aspx|jsp)$ - [F,L,NC]
+</IfModule>

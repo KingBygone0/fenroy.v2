@@ -1,4 +1,4 @@
-const CACHE = 'fenroy-v1';
+const CACHE = 'fenroy-v2';
 const OFFLINE_URL = '/';
 
 // Cache shell assets on install
@@ -24,9 +24,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
 
+    // Only handle http/https — chrome-extension://, data:, blob: etc. are unsupported by Cache API
+    if (!['http:', 'https:'].includes(url.protocol)) return;
+
     // Skip non-GET, admin, api, livewire
     if (e.request.method !== 'GET') return;
-    if (['/admin', '/livewire', '/api'].some(p => url.pathname.startsWith(p))) return;
+    if (['/store-portal', '/livewire', '/api'].some(p => url.pathname.startsWith(p))) return;
 
     if (e.request.mode === 'navigate') {
         e.respondWith(

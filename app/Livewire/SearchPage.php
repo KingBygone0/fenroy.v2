@@ -66,11 +66,12 @@ class SearchPage extends Component
     {
         $q = Product::where('is_active', true);
 
-        if ($this->query !== '') {
-            $q->where(function ($sub) {
-                $sub->where('name', 'like', '%' . $this->query . '%')
-                    ->orWhere('category', 'like', '%' . $this->query . '%')
-                    ->orWhere('description', 'like', '%' . $this->query . '%');
+        $search = substr($this->query, 0, 100);
+        if ($search !== '') {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('category', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
             });
         }
 

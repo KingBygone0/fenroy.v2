@@ -128,60 +128,72 @@ html.dark {
                 Revenue (GH₵)
             </div>
         </div>
-        <div style="padding:20px;" x-data="{
-            chart: null,
-            init() {
-                if (this.chart) { this.chart.destroy(); this.chart = null; }
-                const dark = document.documentElement.classList.contains('dark');
-                const ctx = this.$refs.canvas.getContext('2d');
-                this.chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: {!! json_encode($chart['labels']) !!},
-                        datasets: [{
-                            label: 'Revenue (GH₵)',
-                            data: {!! json_encode($chart['revenues']) !!},
-                            borderColor: '#dc2626',
-                            backgroundColor: 'rgba(220,38,38,0.06)',
-                            fill: true, tension: 0.4, borderWidth: 2,
-                            pointRadius: 4, pointBackgroundColor: '#dc2626',
-                            pointBorderColor: dark ? '#1f2937' : '#fff',
-                            pointBorderWidth: 2, pointHoverRadius: 6,
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: dark ? '#111827' : '#fff',
-                                borderColor: dark ? '#374151' : '#e5e7eb',
-                                borderWidth: 1,
-                                titleColor: dark ? '#f9fafb' : '#111827',
-                                bodyColor: dark ? '#d1d5db' : '#6b7280',
-                                padding: 10,
-                                callbacks: { label: c => '  GH₵ ' + c.parsed.y.toLocaleString('en-GH', { minimumFractionDigits: 2 }) }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                border: { display: false },
-                                grid: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' },
-                                ticks: { color: dark ? '#6b7280' : '#9ca3af', font: { size: 11 }, callback: v => 'GH₵ ' + v.toLocaleString() }
-                            },
-                            x: {
-                                border: { display: false }, grid: { display: false },
-                                ticks: { color: dark ? '#6b7280' : '#9ca3af', font: { size: 11 } }
-                            }
-                        }
-                    }
-                });
-            }
-        }" x-init="init()">
+        <script>
+            window.__rrData = {
+                labels:   {!! json_encode($chart['labels']) !!},
+                revenues: {!! json_encode($chart['revenues']) !!}
+            };
+        </script>
+        <div style="padding:20px;" x-data="rrChart()" x-init="init()">
             <div style="position:relative;height:260px;"><canvas x-ref="canvas"></canvas></div>
         </div>
+        <script>
+        function rrChart() {
+            return {
+                chart: null,
+                init() {
+                    if (this.chart) { this.chart.destroy(); this.chart = null; }
+                    const dark = document.documentElement.classList.contains('dark');
+                    const ctx  = this.$refs.canvas.getContext('2d');
+                    const d    = window.__rrData;
+                    this.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: d.labels,
+                            datasets: [{
+                                label: 'Revenue (GH₵)',
+                                data: d.revenues,
+                                borderColor: '#dc2626',
+                                backgroundColor: 'rgba(220,38,38,0.06)',
+                                fill: true, tension: 0.4, borderWidth: 2,
+                                pointRadius: 4, pointBackgroundColor: '#dc2626',
+                                pointBorderColor: dark ? '#1f2937' : '#fff',
+                                pointBorderWidth: 2, pointHoverRadius: 6,
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: dark ? '#111827' : '#fff',
+                                    borderColor: dark ? '#374151' : '#e5e7eb',
+                                    borderWidth: 1,
+                                    titleColor: dark ? '#f9fafb' : '#111827',
+                                    bodyColor: dark ? '#d1d5db' : '#6b7280',
+                                    padding: 10,
+                                    callbacks: { label: function(c) { return '  GH₵ ' + c.parsed.y.toLocaleString('en-GH', { minimumFractionDigits: 2 }); } }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    border: { display: false },
+                                    grid: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' },
+                                    ticks: { color: dark ? '#6b7280' : '#9ca3af', font: { size: 11 }, callback: function(v) { return 'GH₵ ' + v.toLocaleString(); } }
+                                },
+                                x: {
+                                    border: { display: false }, grid: { display: false },
+                                    ticks: { color: dark ? '#6b7280' : '#9ca3af', font: { size: 11 } }
+                                }
+                            }
+                        }
+                    });
+                }
+            };
+        }
+        </script>
     </div>
 
     {{-- ── Table ── --}}

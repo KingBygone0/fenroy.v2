@@ -12,7 +12,8 @@ class AccountOrders extends Component
 
     public function switchTab(string $tab): void
     {
-        $this->tab = $tab;
+        $allowed = ['all', 'processing', 'delivered', 'cancelled'];
+        $this->tab = in_array($tab, $allowed, true) ? $tab : 'all';
     }
 
     public function reorder(int $index): void
@@ -83,7 +84,16 @@ class AccountOrders extends Component
     {
         if (! auth()->check()) return [];
 
-        return Order::where('customer_email', auth()->user()->email)
+        $userId = auth()->id();
+        $email  = auth()->user()->email;
+
+        return Order::where(function ($q) use ($userId, $email) {
+                // Prefer user_id match (set on new orders); fall back to email for legacy guest orders
+                $q->where('user_id', $userId)
+                  ->orWhere(function ($q2) use ($userId, $email) {
+                      $q2->whereNull('user_id')->where('customer_email', $email);
+                  });
+            })
             ->latest()
             ->get()
             ->map(fn ($o) => [

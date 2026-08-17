@@ -95,7 +95,7 @@
         </div>
 
         {{-- Current password — shown only when email is being changed --}}
-        <div class="mb-4" x-data x-show="$wire.email !== '{{ auth()->user()?->email }}'">
+        <div class="mb-4" x-data='{ originalEmail: {!! json_encode(auth()->user()?->email, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!} }' x-show="$wire.email !== originalEmail">
             <label class="block text-[13px] font-semibold text-brand-text mb-1.5" for="profile-current-password">
                 Current password
                 <span class="font-normal text-brand-secondary-text">(required to change email)</span>

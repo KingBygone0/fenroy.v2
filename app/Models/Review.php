@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Review extends Model
 {
-    protected $fillable = ['product_id', 'user_id', 'reviewer_name', 'rating', 'body', 'is_approved'];
+    protected $fillable = ['product_id', 'user_id', 'reviewer_name', 'rating', 'body'];
+    // is_approved intentionally excluded — set only via admin update() calls, never mass-assigned
 
     protected $casts = ['rating' => 'integer', 'is_approved' => 'boolean'];
 

@@ -1,7 +1,8 @@
 <x-layouts.storefront title="Order Confirmed — Fenroy">
 @php
     $num      = $order?->order_number ?? $orderNumber ?? 'FEN-XXXXXX';
-    $items    = $order ? ($order->items ?? []) : [];
+    $hasOrder = $order !== null;
+    $items    = $hasOrder ? ($order->items ?? []) : [];
     $total    = $order?->total ?? 0;
     $address  = $order?->delivery_address ?? '—';
     $window   = $order?->delivery_window   ?? '—';
@@ -27,6 +28,7 @@
     </div>
   </div>
 
+  @if($hasOrder)
   {{-- ── Delivery card ── --}}
   <div class="bg-white rounded-2xl border border-brand-border-light p-5 mt-5">
     <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-3">Delivery</p>
@@ -156,6 +158,15 @@
       Continue Shopping
     </a>
   </div>
+  @else
+  {{-- Generic confirmation — shown when order details cannot be verified for this viewer --}}
+  <div class="mt-6 text-center">
+    <p class="text-sm text-brand-secondary-text">Your order has been received. Check your email for a confirmation receipt.</p>
+    <a href="{{ route('home') }}" class="mt-5 h-12 px-8 rounded-full bg-brand-red hover:bg-brand-dark-red text-white text-sm font-semibold inline-flex items-center justify-center cursor-pointer transition-colors">
+      Continue Shopping
+    </a>
+  </div>
+  @endif
 
 </div>
 </x-layouts.storefront>

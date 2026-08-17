@@ -12,12 +12,10 @@ class MassAssignmentTest extends TestCase
 
     public function test_is_admin_cannot_be_set_via_mass_assignment(): void
     {
-        $user = User::create([
-            'name'     => 'Attacker',
-            'email'    => 'attacker@example.com',
-            'password' => bcrypt('password'),
-            'is_admin' => true,
-        ]);
+        // password removed from $fillable; set directly to avoid NOT NULL constraint
+        $user = new User(['name' => 'Attacker', 'email' => 'attacker@example.com', 'is_admin' => true]);
+        $user->password = bcrypt('password');
+        $user->save();
 
         $this->assertFalse((bool) $user->fresh()->is_admin,
             'is_admin must not be settable via mass assignment');

@@ -43,11 +43,12 @@ class Register extends Component
 
         RateLimiter::hit($key, 3600);
 
-        $user = User::create([
-            'name'     => strip_tags($this->name),
-            'email'    => $this->email,
-            'password' => $this->password,
+        $user = new User([
+            'name'  => strip_tags($this->name),
+            'email' => $this->email,
         ]);
+        $user->password = $this->password; // hashed cast applies; not via mass assignment
+        $user->save();
 
         Log::channel('single')->info('New account registered', [
             'user_id' => $user->id,

@@ -31,22 +31,24 @@
     <meta name="twitter:description" content="{{ $seoDescription }}">
     <meta name="twitter:image"       content="{{ $seoImage }}">
 
-    {{-- Structured Data --}}
-    <script type="application/ld+json">{!! json_encode([
+    @php
+    $ldJson = json_encode([
         '@context' => 'https://schema.org',
         '@type'    => 'GroceryStore',
         'name'     => 'Fenroy',
         'url'      => 'https://fenroy.shop',
         'logo'     => asset('images/fenroy-logo.png'),
         'image'    => $seoImage,
-        'description' => 'Ghana\'s online supermarket — fresh groceries, beverages, dairy, pantry and household essentials delivered fast.',
+        'description' => "Ghana's online supermarket — fresh groceries, beverages, dairy, pantry and household essentials delivered fast.",
         'telephone'   => '+233245176310',
         'email'       => 'hello@fenroy.shop',
         'areaServed'  => 'Ghana',
         'currenciesAccepted' => 'GHS',
         'paymentAccepted'    => 'Credit Card, Mobile Money',
         'sameAs' => [],
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
+    @endphp
+    <script type="application/ld+json" nonce="{{ Vite::cspNonce() }}">{!! $ldJson !!}</script>
 
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
@@ -61,7 +63,7 @@
     @php $ga4Id = \App\Models\Setting::get('ga4_measurement_id', ''); @endphp
     @if($ga4Id)
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ $ga4Id }}"></script>
-    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $ga4Id }}');</script>
+    <script nonce="{{ Vite::cspNonce() }}">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',@js($ga4Id));</script>
     @endif
 </head>
 <body class="bg-brand-bg font-sans text-brand-text antialiased">
@@ -305,13 +307,13 @@
     <script src="https://js.paystack.co/v1/inline.js"></script>
 
     {{-- PWA Service Worker --}}
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
     }
     </script>
 
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
     function searchAutocomplete() {
         return {
             query: '',

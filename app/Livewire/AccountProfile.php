@@ -5,6 +5,8 @@ namespace App\Livewire;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule as ValidationRule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
@@ -17,14 +19,25 @@ class AccountProfile extends Component
     #[Rule('required|min:2|max:100', message: 'Enter your full name.')]
     public string $name = '';
 
+    // Uniqueness is enforced in save() with ->ignore(auth()->id()) — cannot be done in #[Rule]
     #[Rule('required|email|max:254', message: 'Enter a valid email address.')]
     public string $email = '';
 
     #[Rule('nullable|string|max:20')]
     public string $phone = '';
 
-    #[Rule('nullable|image|max:2048')]
+    // mimes: validates via server-side finfo (actual bytes), not client-provided MIME.
+    // dimensions: prevents memory exhaustion from oversized image bombs.
+    // max:2048 = 2 MB cap.
+    #[Rule('nullable|mimes:jpeg,jpg,png,webp,gif|max:2048|dimensions:max_width=4000,max_height=4000')]
     public $photo = null;
+
+    private const SAFE_MIME_EXTENSIONS = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/gif'  => 'gif',
+        'image/webp' => 'webp',
+    ];
 
     // Required only when the user is changing their email — enforced in save()
     public string $current_password = '';
@@ -48,7 +61,16 @@ class AccountProfile extends Component
 
     public function save(): void
     {
-        $this->validate();
+        $userId = Auth::id();
+
+        $this->validate([
+            'name'  => 'required|min:2|max:100',
+            'email' => ['required', 'email', 'max:254', ValidationRule::unique('users', 'email')->ignore($userId)],
+            'phone' => 'nullable|string|max:20',
+            'photo' => 'nullable|mimes:jpeg,jpg,png,webp,gif|max:2048|dimensions:max_width=4000,max_height=4000',
+        ], [
+            'email.unique' => 'That email address is already in use by another account.',
+        ]);
 
         $user = Auth::user();
 
@@ -68,13 +90,24 @@ class AccountProfile extends Component
         ];
 
         if ($this->photo) {
+            // Derive the extension from the server-detected MIME type (via finfo),
+            // never from the client-supplied filename. This prevents polyglot
+            // attacks where a PHP file passes image MIME detection but gets stored
+            // with a .php extension that Apache would execute.
+            $ext = self::SAFE_MIME_EXTENSIONS[$this->photo->getMimeType()] ?? null;
+            if (! $ext) {
+                $this->addError('photo', 'Unsupported image format.');
+                return;
+            }
+
             if ($user->avatar) {
                 Storage::disk('public')->delete($user->avatar);
             }
-            $path           = $this->photo->store('avatars', 'public');
-            $data['avatar'] = $path;
+            $filename        = Str::random(40) . '.' . $ext;
+            $path            = $this->photo->storeAs('avatars', $filename, 'public');
+            $data['avatar']  = $path;
             $this->avatarUrl = Storage::url($path);
-            $this->photo    = null;
+            $this->photo     = null;
         }
 
         $user->update($data);
