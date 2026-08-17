@@ -371,7 +371,7 @@
 {{-- ═══════════ PAYSTACK INLINE POPUP ═══════════ --}}
 <div
     x-data="{
-        paystackKey: '{{ config('paystack.public_key') }}',
+        paystackKey: '{{ \App\Models\Setting::get('paystack_public_key') ?: config('paystack.public_key') }}',
         verifyUrl:   '{{ route('paystack.verify') }}',
 
         openPopup(data) {

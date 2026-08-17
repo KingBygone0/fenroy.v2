@@ -58,8 +58,24 @@
     <meta name="apple-mobile-web-app-title" content="Fenroy">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    @php $ga4Id = \App\Models\Setting::get('ga4_measurement_id', ''); @endphp
+    @if($ga4Id)
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $ga4Id }}"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $ga4Id }}');</script>
+    @endif
 </head>
 <body class="bg-brand-bg font-sans text-brand-text antialiased">
+
+    {{-- ─── Announcement Banner ──────────────────────────────── --}}
+    @php
+        $bannerEnabled = \App\Models\Setting::get('banner_enabled', '0');
+        $bannerMessage = \App\Models\Setting::get('banner_message', '');
+    @endphp
+    @if($bannerEnabled === '1' && $bannerMessage)
+    <div class="w-full bg-brand-red text-white text-center text-sm font-medium py-2 px-4">
+        {{ $bannerMessage }}
+    </div>
+    @endif
 
     {{-- ═══════════════════════════════════════════════════════════
          DESKTOP HEADER  (hidden on mobile)

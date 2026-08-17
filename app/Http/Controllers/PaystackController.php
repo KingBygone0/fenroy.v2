@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\OrderConfirmedMail;
 use App\Models\Order;
+use App\Models\Setting;
 use App\Services\ArkeselService;
 use App\Services\StockAlertService;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +24,9 @@ class PaystackController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No reference provided.'], 422);
         }
 
-        $response = Http::withToken(config('paystack.secret_key'))
+        $secretKey = Setting::get('paystack_secret_key') ?: config('paystack.secret_key');
+
+        $response = Http::withToken($secretKey)
             ->get(config('paystack.payment_url') . '/transaction/verify/' . $ref);
 
         if (! $response->successful()) {
@@ -101,10 +104,11 @@ class PaystackController extends Controller
 
     public function webhook(Request $request): \Illuminate\Http\Response
     {
-        $signature = $request->header('X-Paystack-Signature');
-        $body      = $request->getContent();
+        $signature     = $request->header('X-Paystack-Signature');
+        $body          = $request->getContent();
+        $webhookSecret = Setting::get('paystack_webhook_secret') ?: config('paystack.webhook_secret');
 
-        if ($signature !== hash_hmac('sha512', $body, config('paystack.webhook_secret'))) {
+        if ($signature !== hash_hmac('sha512', $body, $webhookSecret)) {
             return response('Unauthorized', 401);
         }
 

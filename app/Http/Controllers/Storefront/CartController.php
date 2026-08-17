@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,15 +17,16 @@ class CartController extends Controller
 
     public function quickAdd(Request $request): JsonResponse
     {
-        $slug     = (string)  $request->input('slug', '');
-        $name     = (string)  $request->input('name', '');
-        $unit     = (string)  $request->input('unit', '');
-        $price    = (float)   $request->input('price', 0);
-        $oldPrice = $request->input('old_price') ? (float) $request->input('old_price') : null;
-        $image    = (string)  $request->input('image', '');
+        $slug = trim((string) $request->input('slug', ''));
 
-        if (! $slug || ! $name || $price <= 0) {
+        if (! $slug) {
             return response()->json(['status' => 'error', 'message' => 'Invalid product.'], 422);
+        }
+
+        $product = Product::where('slug', $slug)->where('is_active', true)->first();
+
+        if (! $product || $product->price <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'Product not found.'], 404);
         }
 
         $cartItems = session('cart_items', []);
@@ -32,6 +34,7 @@ class CartController extends Controller
         foreach ($cartItems as &$item) {
             if ($item['slug'] === $slug) {
                 $item['qty']++;
+                $item['price'] = $product->price;
                 $found = true;
                 break;
             }
@@ -40,13 +43,13 @@ class CartController extends Controller
 
         if (! $found) {
             $cartItems[] = [
-                'slug'      => $slug,
-                'name'      => $name,
-                'unit'      => $unit,
-                'price'     => $price,
-                'old_price' => $oldPrice,
+                'slug'      => $product->slug,
+                'name'      => $product->name,
+                'unit'      => $product->unit ?? '',
+                'price'     => $product->price,
+                'old_price' => $product->old_price ?: null,
                 'qty'       => 1,
-                'image'     => $image,
+                'image'     => $product->image_url,
             ];
         }
 
@@ -58,7 +61,7 @@ class CartController extends Controller
 
         return response()->json([
             'status'  => 'ok',
-            'message' => '✓ ' . $name . ' added to cart',
+            'message' => '✓ ' . $product->name . ' added to cart',
             'count'   => $count,
             'total'   => number_format($total, 2),
         ]);

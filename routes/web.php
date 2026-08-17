@@ -33,7 +33,7 @@ Route::get('/products/{slug}', [ProductController::class, 'show'])->name('produc
 
 // ── Cart ─────────────────────────────────────────────────────────
 Route::get('/cart',            [CartController::class, 'index'])->name('cart');
-Route::post('/cart/quick-add', [CartController::class, 'quickAdd'])->name('cart.quick-add');
+Route::post('/cart/quick-add', [CartController::class, 'quickAdd'])->name('cart.quick-add')->middleware('throttle:60,1');
 
 // ── Checkout ─────────────────────────────────────────────────────
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
@@ -80,10 +80,10 @@ Route::get('/order-confirmed/{orderNumber?}', function ($orderNumber = null) {
 Route::get('/order/track/{orderNumber}', function ($orderNumber) {
     $order = Order::where('order_number', $orderNumber)->first();
     return view('storefront.order-tracking', compact('order', 'orderNumber'));
-})->name('order.track');
+})->name('order.track')->middleware('auth');
 
 // ── Paystack ─────────────────────────────────────────────────────
-Route::post('/paystack/verify',  [PaystackController::class, 'verify'])->name('paystack.verify');
+Route::post('/paystack/verify',  [PaystackController::class, 'verify'])->name('paystack.verify')->middleware('throttle:20,1');
 Route::post('/paystack/webhook', [PaystackController::class, 'webhook'])->name('paystack.webhook')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
 
 // ── Admin: Product bulk import upload ────────────────────────────
@@ -124,7 +124,7 @@ Route::get('/api/search-suggest', function (Request $request) {
         'price' => (float) $p->price,
         'image' => $p->image_url,
     ]));
-})->name('search.suggest');
+})->name('search.suggest')->middleware('throttle:30,1');
 
 // ── Sitemap ──────────────────────────────────────────────────────
 Route::get('/sitemap.xml', function () {

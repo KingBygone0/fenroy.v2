@@ -71,8 +71,8 @@ html.dark {
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
                 <label style="font-size:13px;font-weight:500;color:var(--c-label);">Enable Banner</label>
                 <button type="button" wire:click="$toggle('banner_enabled')"
-                    style="position:relative;display:inline-flex;width:44px;height:24px;border-radius:9999px;transition:background .2s;background:{{ $banner_enabled ? '#E53935' : '#d1d5db' }};border:none;cursor:pointer;">
-                    <span style="position:absolute;top:2px;left:{{ $banner_enabled ? '22px' : '2px' }};width:20px;height:20px;background:white;border-radius:9999px;transition:left .2s;"></span>
+                    style="position:relative;display:inline-flex;width:44px;height:24px;border-radius:9999px;transition:background .2s;border:none;cursor:pointer;background:{{ $banner_enabled ? '#E53935' : '#d1d5db' }}">
+                    <span style="position:absolute;top:2px;width:20px;height:20px;background:white;border-radius:9999px;transition:left .2s;left:{{ $banner_enabled ? '22px' : '2px' }}"></span>
                 </button>
                 <span style="font-size:13px;color:var(--c-muted);">{{ $banner_enabled ? 'On' : 'Off' }}</span>
             </div>
@@ -119,6 +119,29 @@ html.dark {
                 <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">Google Analytics 4 Measurement ID</label>
                 <input wire:model="ga4_measurement_id" type="text" placeholder="G-XXXXXXXXXX" style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:14px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" />
                 @error('ga4_measurement_id') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+            </div>
+        </div>
+
+        {{-- Paystack Integration --}}
+        <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:12px;padding:24px;">
+            <h2 style="font-size:15px;font-weight:700;color:var(--c-text);margin-bottom:4px;">Paystack Integration</h2>
+            <p style="font-size:12px;color:var(--c-muted);margin-bottom:16px;">Keys saved here override your <code style="background:var(--c-surface);padding:1px 5px;border-radius:4px;">.env</code> values. Leave blank to keep using <code style="background:var(--c-surface);padding:1px 5px;border-radius:4px;">.env</code>.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div style="grid-column:1/-1;">
+                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">Public Key</label>
+                    <input wire:model="paystack_public_key" type="text" placeholder="pk_live_..." style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" />
+                    @error('paystack_public_key') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">Secret Key</label>
+                    <input wire:model="paystack_secret_key" type="password" placeholder="sk_live_..." style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" />
+                    @error('paystack_secret_key') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:500;color:var(--c-label);margin-bottom:6px;">Webhook Secret</label>
+                    <input wire:model="paystack_webhook_secret" type="password" placeholder="whsec_..." style="width:100%;padding:9px 12px;border:1px solid var(--c-input-border);border-radius:8px;font-size:13px;outline:none;background:var(--c-input-bg);color:var(--c-text);font-family:monospace;" />
+                    @error('paystack_webhook_secret') <p style="color:#ef4444;font-size:12px;margin-top:4px;">{{ $message }}</p> @enderror
+                </div>
             </div>
         </div>
 
