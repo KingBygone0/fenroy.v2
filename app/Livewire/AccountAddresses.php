@@ -46,8 +46,9 @@ class AccountAddresses extends Component
             Address::where('user_id', auth()->id())->update(['is_default' => false]);
         }
 
-        Address::create([
-            'user_id'    => auth()->id(),
+        $address           = new Address();
+        $address->user_id  = auth()->id();  // set directly — user_id is not in fillable
+        $address->fill([
             'full_name'  => $this->full_name,
             'phone'      => $this->phone,
             'line1'      => $this->line1,
@@ -55,6 +56,7 @@ class AccountAddresses extends Component
             'region'     => $this->region,
             'is_default' => $this->is_default || Address::where('user_id', auth()->id())->count() === 0,
         ]);
+        $address->save();
 
         $this->reset(['full_name', 'phone', 'line1', 'city', 'region', 'is_default', 'showForm']);
         $this->full_name = auth()->user()->name;

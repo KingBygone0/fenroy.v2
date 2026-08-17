@@ -72,13 +72,30 @@ Route::get('/contact',  fn () => view('storefront.contact'))->name('contact');
 Route::get('/privacy',  fn () => view('storefront.privacy'))->name('privacy');
 
 // ── Orders ───────────────────────────────────────────────────────
+// Only show order confirmation to the session owner (order placed in this session).
+// Unauthenticated visitors see a generic thank-you; the full detail is gated.
 Route::get('/order-confirmed/{orderNumber?}', function ($orderNumber = null) {
-    $order = $orderNumber ? Order::where('order_number', $orderNumber)->first() : null;
+    $order = null;
+    if ($orderNumber) {
+        $order = Order::where('order_number', $orderNumber)->first();
+        // IDOR guard: only the owner (email match) may see order details.
+        if ($order) {
+            $authedEmail = auth()->user()?->email;
+            if ($authedEmail !== $order->customer_email) {
+                $order = null;  // hide details — show generic confirmation instead
+            }
+        }
+    }
     return view('storefront.order-confirmed', compact('order', 'orderNumber'));
 })->name('order.confirmed');
 
 Route::get('/order/track/{orderNumber}', function ($orderNumber) {
-    $order = Order::where('order_number', $orderNumber)->first();
+    $order = Order::where('order_number', $orderNumber)
+        ->where('customer_email', auth()->user()->email)  // ownership check — prevents IDOR
+        ->first();
+    if (! $order) {
+        abort(404);  // same response whether order doesn't exist or belongs to another user
+    }
     return view('storefront.order-tracking', compact('order', 'orderNumber'));
 })->name('order.track')->middleware('auth');
 

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Address extends Model
 {
     protected $fillable = [
-        'user_id', 'full_name', 'phone', 'line1', 'city', 'region', 'is_default',
+        'full_name', 'phone', 'line1', 'city', 'region', 'is_default',
     ];
 
     protected $casts = ['is_default' => 'boolean'];

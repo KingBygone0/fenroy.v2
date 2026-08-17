@@ -56,10 +56,15 @@ class ProductPage extends Component
                 ->where('product_id', $product->id)->delete();
             $this->wishlisted = false;
         } else {
-            \App\Models\Wishlist::firstOrCreate([
-                'user_id'    => auth()->id(),
-                'product_id' => $product->id,
-            ]);
+            // user_id is not fillable — set directly to prevent mass-assignment
+            $wishlist = \App\Models\Wishlist::where('user_id', auth()->id())
+                ->where('product_id', $product->id)->first();
+            if (! $wishlist) {
+                $wishlist             = new \App\Models\Wishlist();
+                $wishlist->user_id    = auth()->id();
+                $wishlist->product_id = $product->id;
+                $wishlist->save();
+            }
             $this->wishlisted = true;
         }
     }

@@ -6,6 +6,7 @@ use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
 use App\Models\Setting;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
@@ -67,14 +68,10 @@ class CheckoutPage extends Component
         }
 
         if (! $coupon->isValid($this->subtotal)) {
-            if ($coupon->expires_at && $coupon->expires_at->isPast()) {
-                $this->couponError = 'This coupon has expired.';
-            } elseif ($coupon->max_uses && $coupon->used_count >= $coupon->max_uses) {
-                $this->couponError = 'This coupon has reached its usage limit.';
-            } elseif ($this->subtotal < $coupon->min_order) {
+            if ($this->subtotal < ($coupon->min_order ?? 0)) {
                 $this->couponError = 'Minimum order of GH₵ ' . number_format($coupon->min_order, 2) . ' required.';
             } else {
-                $this->couponError = 'This coupon is not valid.';
+                $this->couponError = 'This coupon code could not be applied.';
             }
             return;
         }
@@ -135,7 +132,7 @@ class CheckoutPage extends Component
             'total'           => $total,
         ]]);
 
-        $ref = 'FEN-' . time() . '-' . rand(1000, 9999);
+        $ref = 'FEN-' . strtoupper(Str::random(20));
         $this->js(sprintf(
             "window.dispatchEvent(new CustomEvent('fenroy:paystack', { detail: %s }))",
             json_encode([
