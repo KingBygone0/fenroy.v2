@@ -68,8 +68,22 @@ class GoogleAuthController extends Controller
             ]);
         }
 
+        Log::info('google-auth: pre-login', [
+            'user_id'        => $user->id,
+            'email'          => $user->email,
+            'verified'       => (string) $user->email_verified_at,
+            'session_before' => session()->getId(),
+        ]);
+
         Auth::login($user, remember: true);
-        session()->save(); // Persist session to DB before redirect
+        session()->save();
+
+        Log::info('google-auth: post-login', [
+            'auth_id'       => Auth::id(),
+            'session_after' => session()->getId(),
+            'intended'      => session()->get('url.intended', 'none'),
+        ]);
+
         RateLimiter::clear($key);
 
         return redirect()->intended(route('account.profile'));
