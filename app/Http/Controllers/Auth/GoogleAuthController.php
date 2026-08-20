@@ -49,13 +49,14 @@ class GoogleAuthController extends Controller
             }
         } else {
             $user = User::create([
-                'name'              => strip_tags($googleUser->getName()),
-                'email'             => $googleUser->getEmail(),
-                'google_id'         => $googleUser->getId(),
-                'avatar'            => $googleUser->getAvatar(),
-                'email_verified_at' => now(),
-                'password'          => null,
+                'name'     => strip_tags($googleUser->getName()),
+                'email'    => $googleUser->getEmail(),
+                'google_id'=> $googleUser->getId(),
+                'avatar'   => $googleUser->getAvatar(),
+                'password' => null,
             ]);
+            $user->email_verified_at = now();
+            $user->save();
         }
 
         Auth::login($user, remember: true);
