@@ -13,6 +13,7 @@ use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\AccountController;
+use App\Http\Controllers\Auth\GoogleAuthController;
 
 // ── POS Terminal (staff + admin only) ───────────────────────────
 Route::get('/pos/login', \App\Livewire\Pos\Login::class)->name('pos.login')->middleware('guest');
@@ -63,6 +64,10 @@ Route::middleware('guest')->group(function () {
     Route::get('/register', \App\Livewire\Auth\Register::class)->name('register')->middleware('throttle:10,1');
     Route::get('/forgot-password', \App\Livewire\Auth\ForgotPassword::class)->name('password.request');
     Route::get('/reset-password/{token}', \App\Livewire\Auth\ResetPassword::class)->name('password.reset');
+
+    // Google OAuth
+    Route::get('/auth/google',          [GoogleAuthController::class, 'redirect'])->name('auth.google');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 });
 
 Route::post('/logout', function () {
