@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
 
     // Skip non-GET, admin, api, livewire
     if (e.request.method !== 'GET') return;
-    if (['/store-portal', '/livewire', '/api'].some(p => url.pathname.startsWith(p))) return;
+    if (['/store-portal', '/livewire', '/api', '/auth/'].some(p => url.pathname.startsWith(p))) return;
 
     if (e.request.mode === 'navigate') {
         e.respondWith(
