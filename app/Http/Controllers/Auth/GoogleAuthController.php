@@ -14,7 +14,7 @@ class GoogleAuthController extends Controller
 {
     public function redirect()
     {
-        return Socialite::driver('google')->redirect();
+        return Socialite::driver('google')->stateless()->redirect();
     }
 
     public function callback()
@@ -28,7 +28,7 @@ class GoogleAuthController extends Controller
         RateLimiter::hit($key, 60);
 
         try {
-            $googleUser = Socialite::driver('google')->user();
+            $googleUser = Socialite::driver('google')->stateless()->user();
         } catch (\Exception $e) {
             Log::error('Google OAuth callback failed', [
                 'error' => $e->getMessage(),
