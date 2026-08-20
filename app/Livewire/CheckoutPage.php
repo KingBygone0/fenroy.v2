@@ -5,8 +5,8 @@ namespace App\Livewire;
 use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
-use App\Models\Product;
 use App\Models\Setting;
+use App\Services\CheckoutService;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -15,6 +15,13 @@ use Livewire\Component;
 
 class CheckoutPage extends Component
 {
+    public function boot(CheckoutService $checkoutService): void
+    {
+        $this->checkoutService = $checkoutService;
+    }
+
+    private CheckoutService $checkoutService;
+
     #[Rule('required|min:2', message: 'Enter your full name.')]
     public string $name = '';
 
@@ -117,7 +124,6 @@ class CheckoutPage extends Component
 
         $this->placing = true;
 
-        // ── Step 1: Require a non-empty real cart ─────────────────────────────
         $rawItems = session('cart_items', []);
         if (empty($rawItems)) {
             $this->dispatch('toast', message: 'Your cart is empty.');
@@ -125,37 +131,7 @@ class CheckoutPage extends Component
             return;
         }
 
-        // ── Step 2: Re-validate every item against the database ───────────────
-        // Never trust session prices from add-to-cart time. Re-fetch:
-        //   - Current price (price changes since add-to-cart are honoured)
-        //   - is_active (deactivated products are removed from the order)
-        //   - stock (quantity is capped to available stock; zero-stock items are dropped)
-        $slugs      = array_values(array_filter(array_column($rawItems, 'slug')));
-        $dbProducts = ! empty($slugs)
-            ? Product::whereIn('slug', $slugs)->where('is_active', true)->get()->keyBy('slug')
-            : collect();
-
-        $items = [];
-        foreach ($rawItems as $item) {
-            $slug    = $item['slug'] ?? null;
-            $product = $slug ? $dbProducts->get($slug) : null;
-
-            if (! $product) continue; // skip deactivated or slug-less items
-
-            $qty = max(1, min(99, (int) ($item['qty'] ?? 1)));
-
-            // Cap quantity to available stock when the product tracks it
-            if ($product->stock !== null) {
-                if ($product->stock <= 0) continue; // out of stock — drop item
-                $qty = min($qty, $product->stock);
-            }
-
-            $items[] = array_merge($item, [
-                'price' => $product->price, // always use current DB price
-                'name'  => $product->name,
-                'qty'   => $qty,
-            ]);
-        }
+        $items = $this->checkoutService->validateAndPriceItems($rawItems);
 
         if (empty($items)) {
             $this->dispatch('toast', message: 'Your cart contains no available products.');
@@ -163,35 +139,13 @@ class CheckoutPage extends Component
             return;
         }
 
-        $subtotal = array_sum(array_map(fn ($i) => $i['price'] * $i['qty'], $items));
-
-        // ── Step 2b: Enforce minimum order amount ─────────────────────────────
-        $minOrder = (float) Setting::get('minimum_order_amount', '0');
-        if ($minOrder > 0 && $subtotal < $minOrder) {
-            $this->dispatch('toast', message: 'Minimum order amount is GH₵ ' . number_format($minOrder, 2) . '.');
+        try {
+            $totals = $this->checkoutService->computeTotals($items, $this->zoneId, session('cart_coupon'));
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('toast', message: $e->getMessage());
             $this->placing = false;
             return;
         }
-
-        // ── Step 3: Re-validate coupon server-side at checkout time ──────────
-        // The discount stored in session was computed at applyCoupon() time and may
-        // now be stale: items could have been removed (reducing subtotal below the
-        // coupon minimum), the coupon could have expired, or max_uses reached.
-        // Always recalculate from the CURRENT subtotal, not the session amount.
-        $discount   = 0;
-        $couponCode = session('cart_coupon');
-        if ($couponCode) {
-            $coupon = Coupon::where('code', $couponCode)->where('is_active', true)->first();
-            if ($coupon && $coupon->isValid($subtotal)) {
-                $discount = $coupon->discountFor($subtotal); // recalculate from current subtotal
-            } else {
-                session()->forget(['cart_discount', 'cart_coupon']);
-                $couponCode = null;
-            }
-        }
-
-        $deliveryFee = ($zone->free_above && $subtotal >= $zone->free_above) ? 0.00 : (float) $zone->fee;
-        $total       = max(0, $subtotal + $deliveryFee - $discount);
 
         session(['pending_order' => [
             'user_id'         => auth()->id(),
@@ -199,14 +153,14 @@ class CheckoutPage extends Component
             'email'           => $this->email,
             'phone'           => $this->phone,
             'address'         => $this->address,
-            'delivery_zone'   => $zone->name,
+            'delivery_zone'   => $totals['zone']->name,
             'delivery_window' => $this->deliveryWindowLabel,
             'items'           => $items,
-            'subtotal'        => $subtotal,
-            'delivery_fee'    => $deliveryFee,
-            'discount'        => $discount,
-            'coupon_code'     => $couponCode,
-            'total'           => $total,
+            'subtotal'        => $totals['subtotal'],
+            'delivery_fee'    => $totals['delivery_fee'],
+            'discount'        => $totals['discount'],
+            'coupon_code'     => $totals['coupon_code'],
+            'total'           => $totals['total'],
         ]]);
 
         $ref = 'FEN-' . strtoupper(Str::random(20));
@@ -214,7 +168,7 @@ class CheckoutPage extends Component
             "window.dispatchEvent(new CustomEvent('fenroy:paystack', { detail: %s }))",
             json_encode([
                 'email'    => $this->email,
-                'amount'   => (int) round($total * 100),
+                'amount'   => (int) round($totals['total'] * 100),
                 'currency' => 'GHS',
                 'ref'      => $ref,
                 'name'     => $this->name,

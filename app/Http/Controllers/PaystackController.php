@@ -2,24 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\OrderConfirmedMail;
 use App\Models\Coupon;
 use App\Models\Order;
-use App\Models\Product;
 use App\Models\Setting;
-use App\Services\ArkeselService;
-use App\Services\StockAlertService;
-use Illuminate\Database\QueryException;
+use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class PaystackController extends Controller
 {
+    public function __construct(private OrderService $orderService) {}
+
     public function verify(Request $request): JsonResponse
     {
         $ref = $request->input('reference');
@@ -66,105 +62,10 @@ class PaystackController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Amount mismatch.'], 400);
         }
 
-        // Atomic idempotency guard — prevents duplicate orders when verify() is called
-        // twice concurrently (e.g. double-click, network retry). The SELECT FOR UPDATE
-        // lock combined with the unique index on paystack_ref ensures only one order
-        // is ever created per Paystack reference even under parallel requests.
-        $order          = null;
-        $alreadyExisted = false;
+        $result = $this->orderService->createFromPaystackPayment($orderData, $ref);
+        $order  = $result['order'];
 
-        try {
-            DB::transaction(function () use ($ref, $orderData, &$order, &$alreadyExisted) {
-                $existing = Order::where('paystack_ref', $ref)->lockForUpdate()->first();
-
-                if ($existing) {
-                    $order          = $existing;
-                    $alreadyExisted = true;
-                    return;
-                }
-
-                // Re-validate coupon inside the transaction so concurrent verify() calls
-                // cannot both honour a single-use coupon (race condition on used_count).
-                $couponCode = $orderData['coupon_code'] ?? null;
-                $discount   = $orderData['discount']    ?? 0;
-
-                if ($couponCode) {
-                    $coupon = Coupon::where('code', $couponCode)
-                        ->where('is_active', true)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (! $coupon || ! $coupon->isValid($orderData['subtotal'] ?? 0)) {
-                        // Coupon revoked or maxed out between apply-time and payment-time
-                        $couponCode = null;
-                        $discount   = 0;
-                        Log::info('Paystack verify: coupon invalidated at payment time', [
-                            'code' => $orderData['coupon_code'],
-                            'ref'  => $ref,
-                        ]);
-                    }
-                }
-
-                $order = Order::create([
-                    'user_id'          => $orderData['user_id'] ?? null,
-                    'order_number'     => 'FEN-' . strtoupper(Str::random(12)),
-                    'customer_name'    => $orderData['name'],
-                    'customer_email'   => $orderData['email'],
-                    'customer_phone'   => $orderData['phone'],
-                    'delivery_address' => $orderData['address'] ?? '',
-                    'delivery_window'  => $orderData['delivery_window'] ?? '',
-                    'total'            => $orderData['total'],
-                    'delivery_fee'     => $orderData['delivery_fee'] ?? 0,
-                    'discount'         => $discount,
-                    'coupon_code'      => $couponCode,
-                    'items'            => json_encode($orderData['items'] ?? []),
-                    'status'           => 'processing',
-                    'payment_status'   => 'paid',
-                    'paystack_ref'     => $ref,
-                    'notes'            => 'Paid via Paystack. Ref: ' . $ref,
-                ]);
-
-                if ($couponCode) {
-                    Coupon::where('code', $couponCode)->increment('used_count');
-                }
-
-                // Decrement stock for each ordered item — capped at 0 to prevent negative values.
-                // Done inside the same transaction so stock changes are rolled back if order fails.
-                $items = $orderData['items'] ?? [];
-                if (! empty($items)) {
-                    $slugs = array_filter(array_column($items, 'slug'));
-                    $qtyBySlug = [];
-                    foreach ($items as $item) {
-                        $slug = $item['slug'] ?? null;
-                        if ($slug) {
-                            $qtyBySlug[$slug] = ($qtyBySlug[$slug] ?? 0) + (int) ($item['qty'] ?? 1);
-                        }
-                    }
-
-                    $products = Product::whereIn('slug', array_keys($qtyBySlug))
-                        ->whereNotNull('stock')
-                        ->lockForUpdate()
-                        ->get();
-
-                    foreach ($products as $product) {
-                        $qty     = $qtyBySlug[$product->slug] ?? 0;
-                        $newStock = max(0, $product->stock - $qty);
-                        $product->update(['stock' => $newStock]);
-                    }
-                }
-            });
-        } catch (QueryException $e) {
-            // Unique constraint violation on paystack_ref — another concurrent request
-            // already created the order. Return that order's details.
-            if ($e->getCode() === '23000') {
-                $order          = Order::where('paystack_ref', $ref)->firstOrFail();
-                $alreadyExisted = true;
-            } else {
-                throw $e;
-            }
-        }
-
-        if ($alreadyExisted) {
+        if ($result['already_existed']) {
             session()->forget(['pending_order', 'cart_items', 'cart_count', 'cart_total', 'cart_discount', 'cart_coupon']);
             return response()->json([
                 'status'       => 'success',
@@ -181,32 +82,7 @@ class PaystackController extends Controller
             'total'        => $order->total,
         ]);
 
-        // SMS notifications
-        try {
-            $sms = new ArkeselService();
-            $sms->orderReceived($order);
-            $sms->paymentConfirmed($order);
-            $sms->notifyAdmin($order);
-        } catch (\Throwable $e) {
-            Log::warning('SMS failed for order ' . $order->order_number . ': ' . $e->getMessage());
-        }
-
-        // Low stock alerts
-        try {
-            (new StockAlertService())->checkAfterOrder($orderData['items'] ?? []);
-        } catch (\Throwable $e) {
-            Log::warning('Stock alert failed: ' . $e->getMessage());
-        }
-
-        // Email receipt
-        try {
-            Mail::to($order->customer_email)->send(new OrderConfirmedMail($order));
-        } catch (\Throwable $e) {
-            Log::warning('Receipt email failed for order ' . $order->order_number . ': ' . $e->getMessage());
-        }
-
-        // Mark all side effects as dispatched so the webhook fallback skips them.
-        $order->update(['notified_at' => now()]);
+        $this->orderService->dispatchNotifications($order, $orderData['items'] ?? []);
 
         return response()->json([
             'status'       => 'success',
@@ -262,7 +138,7 @@ class PaystackController extends Controller
             // Stock was already decremented inside verify()'s transaction — do not touch it again.
             if (! $order->notified_at) {
                 try {
-                    $sms = new ArkeselService();
+                    $sms = new \App\Services\ArkeselService();
                     $sms->paymentConfirmed($order);
                     $sms->notifyAdmin($order);
                 } catch (\Throwable $e) {
@@ -270,13 +146,13 @@ class PaystackController extends Controller
                 }
 
                 try {
-                    (new StockAlertService())->checkAfterOrder($order->items ?? []);
+                    (new \App\Services\StockAlertService())->checkAfterOrder($order->items ?? []);
                 } catch (\Throwable $e) {
                     Log::warning('Webhook stock alert failed for order ' . $order->order_number . ': ' . $e->getMessage());
                 }
 
                 try {
-                    Mail::to($order->customer_email)->send(new OrderConfirmedMail($order));
+                    Mail::to($order->customer_email)->send(new \App\Mail\OrderConfirmedMail($order));
                 } catch (\Throwable $e) {
                     Log::warning('Webhook email failed for order ' . $order->order_number . ': ' . $e->getMessage());
                 }
