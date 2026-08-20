@@ -2,7 +2,7 @@
     {{-- Title --}}
     <div style="text-align:center; margin-bottom:32px;">
         <h1 style="margin:0; font-size:24px; font-weight:800; color:#171717; letter-spacing:-0.02em;">Welcome back</h1>
-        <p style="margin:4px 0 0; font-size:13px; color:#666666;">Sign in to your Fenroy account</p>
+        <p style="margin:4px 0 0; font-size:13px; color:#666666;">Sign in to continue</p>
     </div>
 
     {{-- Password reset success --}}

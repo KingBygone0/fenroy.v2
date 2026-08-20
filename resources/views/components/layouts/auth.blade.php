@@ -14,8 +14,18 @@
 
         {{-- Logo --}}
         <div style="display:flex; justify-content:center; align-items:center; margin-bottom:28px;">
-            <a href="{{ route('home') }}" style="display:inline-flex; align-items:center;">
-                <img src="{{ asset('images/fenroy-logo.png') }}" alt="Fenroy" style="height:32px; width:auto; display:block;">
+            <a href="{{ route('home') }}" style="display:inline-flex; align-items:center; gap:10px; text-decoration:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="height:40px; width:40px; flex-shrink:0;">
+                    <g transform="rotate(8, 256, 256)">
+                        <rect x="28" y="28" width="456" height="456" rx="88" ry="88" fill="#A80000"/>
+                    </g>
+                    <path d="M108,230 L108,175 Q108,148 135,143 L182,148" fill="none" stroke="white" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="172" y1="148" x2="355" y2="182" stroke="white" stroke-width="30" stroke-linecap="round"/>
+                    <path d="M172,148 L355,182 L322,300 L200,300 Z" fill="white"/>
+                    <circle cx="218" cy="342" r="30" fill="white"/>
+                    <circle cx="308" cy="342" r="30" fill="white"/>
+                </svg>
+                <span style="font-size:22px; font-weight:800; color:#A80000; letter-spacing:-0.03em;">Fenroy</span>
             </a>
         </div>
 
