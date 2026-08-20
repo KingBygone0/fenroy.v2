@@ -58,4 +58,4 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Coupon validation (rate limited, no auth required to check validity)
-Route::get('coupons/validate', [\App\Http\Controllers\Api\CouponController::class, 'validate'])->middleware('throttle:10,1');
+Route::get('coupons/validate', [\App\Http\Controllers\Api\CouponController::class, 'validateCoupon'])->middleware('throttle:10,1');
