@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
 class GoogleAuthController extends Controller
@@ -86,6 +85,8 @@ class GoogleAuthController extends Controller
 
         RateLimiter::clear($key);
 
-        return redirect()->intended(route('account.profile'));
+        $target = session()->pull('url.intended', route('account.profile'));
+
+        return response()->view('auth.google-redirect', ['target' => $target]);
     }
 }
