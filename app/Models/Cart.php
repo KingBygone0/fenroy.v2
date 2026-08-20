@@ -27,9 +27,11 @@ class Cart extends Model
     public function getSubtotalAttribute(): float
     {
         if ($this->relationLoaded('items')) {
-            return $this->items->sum(fn ($item) => $item->price * $item->quantity);
+            return (float) $this->items->sum(fn ($item) => $item->price * $item->quantity);
         }
 
-        return $this->items()->sum(\Illuminate\Database\Query\Expression::raw('price * quantity'));
+        return (float) $this->items()
+            ->selectRaw('SUM(price * quantity) as total')
+            ->value('total') ?? 0;
     }
 }
