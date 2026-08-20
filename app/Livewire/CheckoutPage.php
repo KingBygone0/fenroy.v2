@@ -28,8 +28,13 @@ class CheckoutPage extends Component
     public string $address = '';
 
     public int    $zoneId         = 0;
+
+    #[Rule('required|in:morning,afternoon,evening')]
     public string $deliveryWindow = 'morning';
+
+    #[Rule('required|in:call,allow,none')]
     public string $substitution   = 'call';
+
     public string $paymentMethod  = 'card';
     public string $couponCode     = '';
     public string $couponError    = '';

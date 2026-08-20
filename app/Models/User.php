@@ -15,7 +15,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'google_id', 'avatar', 'phone', 'password', 'is_staff', 'is_admin'];
+    protected $fillable = ['name', 'email', 'google_id', 'avatar', 'phone', 'password'];
 
     protected $hidden = ['password', 'remember_token', 'two_factor_secret'];
 

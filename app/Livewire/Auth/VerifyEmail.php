@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
 class VerifyEmail extends Component
@@ -15,6 +16,13 @@ class VerifyEmail extends Component
             $this->redirect(route('account.profile'), navigate: true);
             return;
         }
+
+        $key = 'verify-email:' . Auth::id();
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $this->dispatch('toast', message: 'Too many requests. Please wait before requesting another email.');
+            return;
+        }
+        RateLimiter::hit($key, 300); // 3 per 5 minutes
 
         Auth::user()->sendEmailVerificationNotification();
         $this->sent = true;

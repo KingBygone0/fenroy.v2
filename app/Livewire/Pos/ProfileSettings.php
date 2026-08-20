@@ -2,13 +2,21 @@
 
 namespace App\Livewire\Pos;
 
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Illuminate\Support\Facades\Hash;
 
 class ProfileSettings extends Component
 {
     use WithFileUploads;
+
+    private const SAFE_MIME_EXTENSIONS = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/webp' => 'webp',
+    ];
 
     public string $name            = '';
     public string $phone           = '';
@@ -45,7 +53,15 @@ class ProfileSettings extends Component
     {
         $this->validate(['avatarUpload' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048']);
 
-        $path = $this->avatarUpload->store('avatars', 'public');
+        // Derive extension from server-detected MIME type — never trust client filename.
+        $ext = self::SAFE_MIME_EXTENSIONS[$this->avatarUpload->getMimeType()] ?? null;
+        if (! $ext) {
+            $this->addError('avatarUpload', 'Unsupported image format.');
+            return;
+        }
+
+        $filename = Str::random(40) . '.' . $ext;
+        $path     = $this->avatarUpload->storeAs('avatars', $filename, 'public');
         auth()->user()->update(['avatar' => $path]);
 
         $this->avatarUpload   = null;
@@ -59,7 +75,7 @@ class ProfileSettings extends Component
 
         $this->validate([
             'currentPassword' => 'required',
-            'newPassword'     => 'required|min:8',
+            'newPassword'     => ['required', Password::min(12)->letters()->mixedCase()->numbers()],
             'confirmPassword' => 'required|same:newPassword',
         ]);
 

@@ -67,25 +67,20 @@ class GoogleAuthController extends Controller
             ]);
         }
 
-        Log::error('google-auth: pre-login', [
-            'user_id'        => $user->id,
-            'email'          => $user->email,
-            'verified'       => (string) $user->email_verified_at,
-            'session_before' => session()->getId(),
-        ]);
-
         Auth::login($user, remember: true);
         session()->save();
 
-        Log::error('google-auth: post-login', [
-            'auth_id'       => Auth::id(),
-            'session_after' => session()->getId(),
-            'intended'      => session()->get('url.intended', 'none'),
-        ]);
-
         RateLimiter::clear($key);
 
-        $target = session()->pull('url.intended', route('account.profile'));
+        // Only redirect to same-host intended URLs — prevents open redirect via url.intended.
+        $rawTarget = session()->pull('url.intended', null);
+        $target    = route('account.profile');
+        if ($rawTarget) {
+            $parsedHost = parse_url($rawTarget, PHP_URL_HOST);
+            if ($parsedHost === null || $parsedHost === request()->getHost()) {
+                $target = $rawTarget;
+            }
+        }
 
         return response()->view('auth.google-redirect', ['target' => $target]);
     }

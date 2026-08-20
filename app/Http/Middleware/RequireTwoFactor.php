@@ -16,8 +16,8 @@ class RequireTwoFactor
             return $next($request);
         }
 
-        // Allow the challenge page itself through
-        if ($request->is('store-portal/two-factor-challenge')) {
+        // Allow the challenge page itself through (exact route name, not path prefix)
+        if ($request->routeIs('filament.admin.pages.two-factor-challenge')) {
             return $next($request);
         }
 

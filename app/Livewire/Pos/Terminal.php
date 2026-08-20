@@ -4,6 +4,7 @@ namespace App\Livewire\Pos;
 
 use App\Models\Order;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -142,16 +143,26 @@ class Terminal extends Component
     {
         if (empty($this->cart)) return;
 
+        if (! in_array($this->paymentMethod, ['cash', 'momo', 'card'], true)) {
+            $this->dispatch('toast', message: 'Invalid payment method selected.');
+            return;
+        }
+
         $subtotal = array_sum(array_map(fn ($i) => $i['price'] * $i['qty'], $this->cart));
         $discount = max(0, min((float) $this->manualDiscount, $subtotal));
         $total    = max(0, $subtotal - $discount);
 
+        $customerEmail = trim($this->customerEmail);
+        $customerEmail = filter_var($customerEmail, FILTER_VALIDATE_EMAIL)
+            ? mb_substr($customerEmail, 0, 254)
+            : null;
+
         $order = Order::create([
             'order_number'     => 'FEN-' . strtoupper(Str::random(12)),
             'is_walk_in'       => true,
-            'customer_name'    => trim($this->customerName) ?: 'Walk-in Customer',
-            'customer_email'   => trim($this->customerEmail) ?: null,
-            'customer_phone'   => trim($this->customerPhone) ?: null,
+            'customer_name'    => mb_substr(strip_tags(trim($this->customerName) ?: 'Walk-in Customer'), 0, 100),
+            'customer_email'   => $customerEmail,
+            'customer_phone'   => mb_substr(strip_tags(trim($this->customerPhone)), 0, 20) ?: null,
             'delivery_address' => 'Walk-in Sale',
             'delivery_window'  => null,
             'total'            => $total,
@@ -163,13 +174,15 @@ class Terminal extends Component
             'payment_status'   => 'paid',
             'payment_method'   => $this->paymentMethod,
             'paystack_ref'     => null,
-            'notes'            => trim($this->note) ?: null,
+            'notes'            => mb_substr(strip_tags(trim($this->note)), 0, 500) ?: null,
         ]);
 
         foreach ($this->cart as $item) {
+            $qty = (int) $item['qty'];
+            // GREATEST(0, stock - qty) prevents stock from going negative on concurrent sales
             Product::where('slug', $item['slug'])
                 ->whereNotNull('stock')
-                ->decrement('stock', $item['qty']);
+                ->update(['stock' => DB::raw('GREATEST(0, stock - ' . $qty . ')')]);
         }
 
         $orderNumber = $order->order_number;

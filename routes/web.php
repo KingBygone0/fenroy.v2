@@ -24,7 +24,7 @@ Route::post('/pos/logout', function () {
     return redirect()->route('pos.login');
 })->name('pos.logout')->middleware('auth');
 
-Route::middleware(['auth', \App\Http\Middleware\RequirePosAccess::class])->group(function () {
+Route::middleware(['auth', \App\Http\Middleware\RequirePosAccess::class, \App\Http\Middleware\RequireTwoFactor::class])->group(function () {
     Route::get('/pos',             \App\Livewire\Pos\Terminal::class)->name('pos.terminal');
     Route::get('/pos/products',   \App\Livewire\Pos\Products::class)->name('pos.products');
     Route::get('/pos/orders',     \App\Livewire\Pos\Orders::class)->name('pos.orders');
