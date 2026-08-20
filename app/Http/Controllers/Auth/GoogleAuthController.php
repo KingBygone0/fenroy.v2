@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
@@ -28,7 +29,11 @@ class GoogleAuthController extends Controller
 
         try {
             $googleUser = Socialite::driver('google')->user();
-        } catch (\Exception) {
+        } catch (\Exception $e) {
+            Log::error('Google OAuth callback failed', [
+                'error' => $e->getMessage(),
+                'class' => get_class($e),
+            ]);
             return redirect()->route('login')->withErrors([
                 'email' => 'Google sign-in failed. Please try again.',
             ]);
