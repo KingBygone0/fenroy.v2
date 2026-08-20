@@ -43,20 +43,29 @@ class GoogleAuthController extends Controller
             ?? User::where('email', $googleUser->getEmail())->first();
 
         if ($user) {
-            // Link Google ID to existing account if not already linked
+            $dirty = [];
             if (! $user->google_id) {
-                $user->update(['google_id' => $googleUser->getId()]);
+                $dirty['google_id'] = $googleUser->getId();
+            }
+            if (! $user->email_verified_at) {
+                $dirty['email_verified_at'] = now();
+            }
+            if ($dirty) {
+                $user->forceFill($dirty)->save();
+                $user = $user->fresh();
             }
         } else {
-            $user = User::create([
-                'name'     => strip_tags($googleUser->getName()),
-                'email'    => $googleUser->getEmail(),
-                'google_id'=> $googleUser->getId(),
-                'avatar'   => $googleUser->getAvatar(),
-                'password' => null,
+            // forceCreate bypasses fillable so email_verified_at is set atomically
+            // in a single INSERT — no extra save() needed, avoids event ordering issues.
+            // Google CDN avatars are not stored in the local avatar column
+            // (which expects a storage-relative path, not an external URL).
+            $user = User::forceCreate([
+                'name'              => strip_tags($googleUser->getName()),
+                'email'             => $googleUser->getEmail(),
+                'google_id'         => $googleUser->getId(),
+                'email_verified_at' => now(),
+                'password'          => null,
             ]);
-            $user->email_verified_at = now();
-            $user->save();
         }
 
         Auth::login($user, remember: true);
