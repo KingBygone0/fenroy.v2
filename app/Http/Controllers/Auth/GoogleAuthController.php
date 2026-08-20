@@ -69,6 +69,7 @@ class GoogleAuthController extends Controller
         }
 
         Auth::login($user, remember: true);
+        session()->save(); // Persist session to DB before redirect
         RateLimiter::clear($key);
 
         return redirect()->intended(route('account.profile'));
