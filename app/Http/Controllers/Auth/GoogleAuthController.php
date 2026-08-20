@@ -60,8 +60,6 @@ class GoogleAuthController extends Controller
         }
 
         Auth::login($user, remember: true);
-        request()->session()->regenerate();
-
         RateLimiter::clear($key);
 
         return redirect()->intended(route('account.profile'));
