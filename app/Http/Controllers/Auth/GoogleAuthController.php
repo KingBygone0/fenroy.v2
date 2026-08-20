@@ -68,7 +68,7 @@ class GoogleAuthController extends Controller
             ]);
         }
 
-        Log::info('google-auth: pre-login', [
+        Log::error('google-auth: pre-login', [
             'user_id'        => $user->id,
             'email'          => $user->email,
             'verified'       => (string) $user->email_verified_at,
@@ -78,7 +78,7 @@ class GoogleAuthController extends Controller
         Auth::login($user, remember: true);
         session()->save();
 
-        Log::info('google-auth: post-login', [
+        Log::error('google-auth: post-login', [
             'auth_id'       => Auth::id(),
             'session_after' => session()->getId(),
             'intended'      => session()->get('url.intended', 'none'),
