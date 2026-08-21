@@ -18,17 +18,18 @@
     </div>
 
     {{-- Row 2: scrollable nav tabs --}}
-    <nav class="flex overflow-x-auto gap-2" style="scrollbar-width:none; -webkit-overflow-scrolling:touch;">
+    <nav class="flex overflow-x-auto gap-2 pb-1" style="scrollbar-width:none; -webkit-overflow-scrolling:touch;">
         @php
         $mobileItems = [
             ['route' => 'account.profile',   'label' => 'Profile',   'key' => 'profile'],
             ['route' => 'account.orders',    'label' => 'My Orders', 'key' => 'orders'],
             ['route' => 'account.addresses', 'label' => 'Addresses', 'key' => 'addresses'],
+            ['route' => 'account.wishlist',  'label' => 'Wishlist',  'key' => 'wishlist'],
         ];
         @endphp
         @foreach($mobileItems as $item)
             <a href="{{ route($item['route']) }}"
-               class="shrink-0 h-10 px-5 rounded-full text-sm font-semibold transition-colors whitespace-nowrap
+               class="shrink-0 flex items-center justify-center h-10 px-5 rounded-full text-sm font-semibold transition-colors whitespace-nowrap
                    {{ $active === $item['key']
                        ? 'bg-brand-text text-white'
                        : 'bg-white border border-brand-border-light text-brand-secondary-text hover:text-brand-text' }}">
