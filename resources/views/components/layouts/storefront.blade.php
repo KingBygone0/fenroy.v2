@@ -267,6 +267,12 @@
                 <a href="{{ route('faq') }}" class="hover:text-brand-text transition-colors">FAQ</a>
                 <a href="{{ route('contact') }}" class="hover:text-brand-text transition-colors">Contact</a>
                 <a href="{{ route('privacy') }}" class="hover:text-brand-text transition-colors">Privacy</a>
+                <a href="https://github.com/KingBygone0/fenroy.v2/releases/tag/v1.0.3"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-red text-white text-[12px] font-semibold hover:opacity-90 transition-opacity"
+                   target="_blank" rel="noopener">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Download App
+                </a>
             </nav>
             <p class="text-[13px] text-brand-secondary-text">
                 Powered by <a href="#" class="font-bold text-brand-red">Fenroy</a>
