@@ -254,7 +254,8 @@
         {{ $slot }}
     </main>
 
-    {{-- ─── Mobile Download Banner ────────────────────────────── --}}
+    {{-- ─── Mobile Download Banner (hidden inside the Android app) ── --}}
+    @if(!str_contains(request()->userAgent() ?? '', 'FenroyApp'))
     <div class="md:hidden px-4 py-4 mt-8 mb-24">
         <a href="https://fenroy.shop/downloads/fenroy.apk"
            class="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-brand-red text-white text-sm font-semibold active:opacity-80 transition-opacity">
@@ -262,6 +263,7 @@
             Download Fenroy App
         </a>
     </div>
+    @endif
 
     {{-- ─── Desktop Footer ────────────────────────────────────── --}}
     <footer class="hidden md:block border-t border-brand-border-light bg-white mt-16">
