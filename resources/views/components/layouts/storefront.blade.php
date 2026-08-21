@@ -256,12 +256,27 @@
 
     {{-- ─── Mobile Download Banner (hidden inside the Android app) ── --}}
     @if(!str_contains(request()->userAgent() ?? '', 'FenroyApp'))
-    <div class="md:hidden px-4 py-4 mt-8 mb-24">
-        <a href="https://fenroy.shop/downloads/fenroy.apk"
-           class="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-brand-red text-white text-sm font-semibold active:opacity-80 transition-opacity">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Download Fenroy App
-        </a>
+    <div x-data="{ show: !localStorage.getItem('fenroyAppBannerDismissed') }"
+         x-show="show"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="md:hidden fixed bottom-[60px] inset-x-0 z-40 px-4 pb-2">
+        <div class="flex items-center gap-2 bg-brand-red text-white px-4 py-3 rounded-2xl shadow-lg">
+            <a href="https://fenroy.shop/downloads/fenroy.apk"
+               class="flex-1 flex items-center gap-2 text-sm font-semibold active:opacity-80">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Download Fenroy App
+            </a>
+            <button @click="show = false; localStorage.setItem('fenroyAppBannerDismissed', '1')"
+                    class="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 shrink-0"
+                    aria-label="Dismiss">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
     </div>
     @endif
 
