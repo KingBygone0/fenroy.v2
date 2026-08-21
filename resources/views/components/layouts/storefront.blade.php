@@ -265,16 +265,23 @@
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 translate-y-2"
          class="md:hidden fixed bottom-[60px] inset-x-0 z-40 px-4 pb-2">
-        <div class="flex items-center gap-2 bg-brand-red text-white px-4 py-3 rounded-2xl shadow-lg">
-            <a href="https://fenroy.shop/downloads/fenroy.apk"
-               class="flex-1 flex items-center gap-2 text-sm font-semibold active:opacity-80">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                Download Fenroy App
-            </a>
+        <div class="flex items-center justify-between bg-white border border-brand-border-light rounded-2xl shadow-lg px-4 py-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-red flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.341 14.6 10.8l2.925-4.541a.75.75 0 0 0-1.275-.782L13.4 9.8l-2.85-4.323a.75.75 0 0 0-1.275.782L12.2 10.8l-2.923 4.541a.75.75 0 1 0 1.275.782L13.4 11.8l2.848 4.323a.75.75 0 1 0 1.275-.782zM2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12z"/></svg>
+                </div>
+                <div>
+                    <p class="text-[11px] text-brand-secondary-text leading-none mb-0.5">GET IT ON</p>
+                    <a href="https://fenroy.shop/downloads/fenroy.apk"
+                       class="text-[15px] font-bold text-brand-text leading-none tracking-tight active:opacity-70">
+                        Download for Android
+                    </a>
+                </div>
+            </div>
             <button @click="show = false; localStorage.setItem('fenroyAppBannerDismissed', '1')"
-                    class="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 shrink-0"
+                    class="w-7 h-7 flex items-center justify-center rounded-full bg-[#F5F5F5] shrink-0 ml-3"
                     aria-label="Dismiss">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                <svg class="w-3 h-3 text-brand-secondary-text" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
     </div>
