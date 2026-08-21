@@ -254,6 +254,15 @@
         {{ $slot }}
     </main>
 
+    {{-- ─── Mobile Download Banner ────────────────────────────── --}}
+    <div class="md:hidden px-4 py-4 mt-8 mb-24">
+        <a href="https://fenroy.shop/downloads/fenroy.apk"
+           class="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-brand-red text-white text-sm font-semibold active:opacity-80 transition-opacity">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download Fenroy App
+        </a>
+    </div>
+
     {{-- ─── Desktop Footer ────────────────────────────────────── --}}
     <footer class="hidden md:block border-t border-brand-border-light bg-white mt-16">
         <div class="max-w-[1280px] mx-auto px-14 py-6 flex items-center justify-between">
