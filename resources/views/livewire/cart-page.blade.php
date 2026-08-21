@@ -26,9 +26,9 @@
     {{-- Page title --}}
     <div class="flex items-center gap-3 mb-5 md:mb-6">
         {{-- Mobile back arrow --}}
-        <a href="javascript:history.back()" class="md:hidden w-11 h-11 -ml-2 flex items-center justify-center rounded-full active:bg-[#F5F5F5]" aria-label="Back">
+        <button type="button" onclick="history.back()" class="md:hidden w-11 h-11 -ml-2 flex items-center justify-center rounded-full active:bg-[#F5F5F5]" aria-label="Back">
             <svg class="w-5 h-5 text-brand-text" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
-        </a>
+        </button>
         <h1 class="text-[22px] md:text-[28px] font-extrabold text-brand-text">
             Your Cart <span class="text-brand-muted font-normal text-base ml-1">· {{ count($items) }} {{ count($items) === 1 ? 'item' : 'items' }}</span>
         </h1>

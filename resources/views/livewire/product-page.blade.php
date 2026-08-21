@@ -19,9 +19,9 @@
 
         {{-- ─── Mobile icon header ─── --}}
         <div class="md:hidden flex items-center justify-between mb-3">
-            <a href="javascript:history.back()" class="w-11 h-11 -ml-2 flex items-center justify-center rounded-full active:bg-[#F5F5F5]" aria-label="Back">
+            <button type="button" onclick="history.back()" class="w-11 h-11 -ml-2 flex items-center justify-center rounded-full active:bg-[#F5F5F5]" aria-label="Back">
                 <svg class="w-5 h-5 text-brand-text" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
-            </a>
+            </button>
             <div class="flex items-center gap-1">
                 <button wire:click="toggleWishlist" class="w-11 h-11 flex items-center justify-center rounded-full active:bg-[#F5F5F5] cursor-pointer" aria-label="Wishlist">
                     <svg class="w-5 h-5 {{ $wishlisted ? 'text-brand-red' : 'text-brand-text' }}" fill="{{ $wishlisted ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
