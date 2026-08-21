@@ -1,9 +1,6 @@
 <x-layouts.storefront title="My Orders — Fenroy">
     <div class="max-w-[1280px] mx-auto px-4 md:px-14 py-4 md:py-8 pb-24 md:pb-8">
 
-        {{-- Mobile page title --}}
-        <h1 class="md:hidden text-lg font-extrabold mb-4">My Account</h1>
-
         <div class="md:flex md:gap-8">
             <x-storefront.account-sidebar active="orders" />
             <div class="flex-1 min-w-0">
