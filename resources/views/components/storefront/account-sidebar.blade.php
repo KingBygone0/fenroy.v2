@@ -24,7 +24,6 @@
             ['route' => 'account.profile',   'label' => 'Profile',   'key' => 'profile'],
             ['route' => 'account.orders',    'label' => 'My Orders', 'key' => 'orders'],
             ['route' => 'account.addresses', 'label' => 'Addresses', 'key' => 'addresses'],
-            ['route' => 'account.wishlist',  'label' => 'Wishlist',  'key' => 'wishlist'],
         ];
         @endphp
         @foreach($mobileItems as $item)
