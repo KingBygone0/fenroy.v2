@@ -18,13 +18,13 @@ jobs:
   android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: mobile/package-lock.json
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -56,19 +56,19 @@ jobs:
           cp app/build/outputs/apk/release/*.apk "../dist/Fenroy-$VERSION-${{ github.run_number }}.apk"
           cp app/build/outputs/bundle/release/*.aab "../dist/Fenroy-$VERSION-${{ github.run_number }}.aab"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: fenroy-android
           path: mobile/dist/*
 
   ios:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -95,7 +95,46 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/App.app Payload/
           zip -qr "dist/Fenroy-$VERSION-${{ github.run_number }}-unsigned.ipa" Payload
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: fenroy-ios
           path: mobile/dist/*.ipa
+
+  # Publishes (or refreshes) a GitHub release named after mobile/package.json's version,
+  # like the earlier "Fenroy App v1.0.3" release.
+  release:
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          path: ${{ runner.temp }}/out
+          merge-multiple: true
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          OUT="$RUNNER_TEMP/out"
+          mkdir -p "$RUNNER_TEMP/assets"
+          # An unsigned APK won't install on phones, so only publish it once signing is set up.
+          if [ "$SIGNED" = "true" ]; then
+            cp "$OUT"/*.apk "$RUNNER_TEMP/assets/fenroy.apk"
+          else
+            echo "::warning::Android signing secrets missing, so the APK is left out of the release"
+          fi
+          cp "$OUT"/*.ipa "$RUNNER_TEMP/assets/fenroy-unsigned.ipa"
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$RUNNER_TEMP"/assets/* --clobber
+          else
+            gh release create "$TAG" "$RUNNER_TEMP"/assets/* \
+              --title "Fenroy App $TAG" --target "$GITHUB_SHA" \
+              --notes "Built from ${GITHUB_SHA::7}.
+          - fenroy.apk: Android (install directly)
+          - fenroy-unsigned.ipa: iPhone (install with Sideloadly using your Apple ID)"
+          fi
