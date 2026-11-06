@@ -1,0 +1,40 @@
+{
+  "appId": "shop.fenroy.app",
+  "appName": "Fenroy",
+  "webDir": "www",
+  "server": {
+    "url": "https://fenroy.shop",
+    "cleartext": false,
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "fenroy.shop",
+      "*.fenroy.shop",
+      "*.paystack.co",
+      "*.paystack.com"
+    ]
+  },
+  "appendUserAgent": "FenroyApp/1.0",
+  "backgroundColor": "#FFFFFF",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "scrollEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#FFFFFF",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "iosSpinnerStyle": "small",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+}
