@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Services\AccountDeletionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -43,6 +44,10 @@ class AccountProfile extends Component
     public string $current_password = '';
 
     public ?string $avatarUrl = null;
+
+    // Account deletion: password for normal accounts, typed "DELETE" for Google-only accounts.
+    public string $deletePassword = '';
+    public string $deleteConfirm  = '';
 
     public function mount(): void
     {
@@ -115,6 +120,35 @@ class AccountProfile extends Component
         $this->current_password = '';
 
         $this->js("window.dispatchEvent(new CustomEvent('toast', { detail: { message: 'Profile saved successfully.' } }))");
+    }
+
+    public function deleteAccount(AccountDeletionService $deletion): void
+    {
+        $user = Auth::user();
+
+        if ($user->password) {
+            if ($this->deletePassword === '' || ! Hash::check($this->deletePassword, $user->password)) {
+                $this->addError('deletePassword', 'Enter your current password to delete your account.');
+                return;
+            }
+        } elseif (strtoupper(trim($this->deleteConfirm)) !== 'DELETE') {
+            $this->addError('deleteConfirm', 'Type DELETE to confirm.');
+            return;
+        }
+
+        if ($deletion->activeOrderCount($user) > 0) {
+            $this->addError('deleteAccount', 'You have an order that is still being delivered. You can delete your account once it has arrived.');
+            return;
+        }
+
+        $deletion->delete($user);
+
+        Auth::logout();
+        session()->invalidate();
+        session()->regenerateToken();
+        session()->flash('status', 'account-deleted');
+
+        $this->redirectRoute('home');
     }
 
     #[Computed]

@@ -5,8 +5,10 @@ namespace App\Livewire;
 use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
+use App\Models\PendingOrder;
 use App\Models\Setting;
 use App\Services\CheckoutService;
+use App\Support\DeliveryWindows;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -49,6 +51,8 @@ class CheckoutPage extends Component
 
     public function mount(): void
     {
+        $this->deliveryWindow = DeliveryWindows::defaultKey();
+
         if (auth()->check()) {
             $user        = auth()->user();
             $this->name  = $user->name;
@@ -147,7 +151,10 @@ class CheckoutPage extends Component
             return;
         }
 
-        session(['pending_order' => [
+        $ref = 'FEN-' . strtoupper(Str::random(20));
+
+        $pending = [
+            'paystack_ref'    => $ref,
             'user_id'         => auth()->id(),
             'name'            => $this->name,
             'email'           => $this->email,
@@ -155,15 +162,25 @@ class CheckoutPage extends Component
             'address'         => $this->address,
             'delivery_zone'   => $totals['zone']->name,
             'delivery_window' => $this->deliveryWindowLabel,
+            'substitution'    => DeliveryWindows::substitutionLabel($this->substitution),
             'items'           => $items,
             'subtotal'        => $totals['subtotal'],
             'delivery_fee'    => $totals['delivery_fee'],
             'discount'        => $totals['discount'],
             'coupon_code'     => $totals['coupon_code'],
             'total'           => $totals['total'],
-        ]]);
+        ];
 
-        $ref = 'FEN-' . strtoupper(Str::random(20));
+        session(['pending_order' => $pending]);
+
+        // Also persist server-side so the Paystack webhook can still create the order
+        // if the customer pays but never returns to this page (closed app, lost signal).
+        PendingOrder::create([
+            'paystack_ref' => $ref,
+            'user_id'      => auth()->id(),
+            'payload'      => $pending,
+            'expires_at'   => now()->addDay(),
+        ]);
         $this->js(sprintf(
             "window.dispatchEvent(new CustomEvent('fenroy:paystack', { detail: %s }))",
             json_encode([
@@ -228,12 +245,7 @@ class CheckoutPage extends Component
     #[Computed]
     public function deliveryWindowLabel(): string
     {
-        return match ($this->deliveryWindow) {
-            'morning'   => 'Today, 8am – 12pm',
-            'afternoon' => 'Today, 12pm – 4pm',
-            'evening'   => 'Today, 4pm – 8pm',
-            default     => '',
-        };
+        return DeliveryWindows::label($this->deliveryWindow);
     }
 
     public function render()
@@ -247,6 +259,7 @@ class CheckoutPage extends Component
             'discount'            => $this->discount,
             'total'               => $this->total,
             'deliveryWindowLabel' => $this->deliveryWindowLabel,
+            'deliveryWindows'     => DeliveryWindows::all(),
             'appliedCoupon'       => $this->appliedCoupon,
         ]);
     }

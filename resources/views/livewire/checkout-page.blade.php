@@ -145,12 +145,12 @@
                 {{-- Delivery window --}}
                 <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-3">Delivery window</p>
                 <div class="flex flex-wrap gap-2 mb-5">
-                    @foreach(['morning' => '8am – 12pm', 'afternoon' => '12pm – 4pm', 'evening' => '4pm – 8pm'] as $key => $label)
+                    @foreach($deliveryWindows as $key => $window)
                     <button
                         wire:click="$set('deliveryWindow', '{{ $key }}')"
                         class="h-10 px-5 rounded-full text-sm font-semibold transition-colors cursor-pointer min-w-[44px]
                                {{ $deliveryWindow === $key ? 'bg-brand-text text-white' : 'bg-white border border-brand-border text-brand-text hover:border-brand-text' }}">
-                        {{ $label }}
+                        {{ $window['day'] }} · {{ $window['time'] }}
                     </button>
                     @endforeach
                 </div>

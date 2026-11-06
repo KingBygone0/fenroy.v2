@@ -37,7 +37,7 @@ class ProductPerformanceTable extends BaseWidget
                 if (! isset($stats[$name])) {
                     $stats[$name] = ['name' => $name, 'units' => 0, 'revenue' => 0.0];
                 }
-                $qty   = (int) ($item['quantity'] ?? 0);
+                $qty   = (int) ($item['qty'] ?? $item['quantity'] ?? 0);
                 $price = (float) ($item['price'] ?? 0);
                 $stats[$name]['units']   += $qty;
                 $stats[$name]['revenue'] += $qty * $price;

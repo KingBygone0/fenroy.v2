@@ -117,7 +117,7 @@
                     <h2 id="sharing">4. Sharing</h2>
                     <p>We share your delivery address and phone number with the rider delivering your order, and order data with the payment provider handling your payment. We do not sell personal data to anyone.</p>
                     <h2 id="your-rights">5. Your rights</h2>
-                    <p>You can view and edit your details in your account, ask us for a copy of your data, or ask us to delete your account entirely. Deleting your account removes your personal details; anonymised order records are kept for accounting as required by law.</p>
+                    <p>You can view and edit your details in your account, ask us for a copy of your data, or ask us to delete your account entirely. You can also <a href="{{ route('account.delete-info') }}" class="text-brand-red hover:underline">delete your account yourself</a> from your profile. Deleting your account removes your personal details; anonymised order records are kept for accounting as required by law.</p>
                     <h2 id="contact">6. Contact</h2>
                     <p>Questions about privacy? Email <a href="mailto:privacy@fenroy.com" class="text-brand-dark-red hover:underline">privacy@fenroy.com</a> or write to Fenroy, 12 Oxford Street, Osu, Accra. <span class="text-brand-muted italic">(Sample contact details)</span></p>
                 </div>

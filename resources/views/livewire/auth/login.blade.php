@@ -81,6 +81,8 @@
 
     </form>
 
+    {{-- Google blocks sign-in inside app WebViews, so it's web-only --}}
+    @unless(\App\Support\NativeApp::detected())
     {{-- Divider --}}
     <div style="margin:24px 0; display:flex; align-items:center; gap:12px;">
         <div style="flex:1; height:1px; background:#F0F0F0;"></div>
@@ -101,6 +103,7 @@
         </svg>
         Continue with Google
     </a>
+    @endunless
 
     <div style="margin:24px 0 0;"></div>
 

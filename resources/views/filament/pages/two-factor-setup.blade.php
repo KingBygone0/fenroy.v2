@@ -36,12 +36,12 @@
                 {{ $this->getPendingPlainSecret() }}
             </code>
 
-            <x-filament-panels::form wire:submit="enable">
+            <form wire:submit="enable">
                 {{ $this->form }}
                 <div style="margin-top:16px;">
                     <x-filament::button type="submit">Verify and enable 2FA</x-filament::button>
                 </div>
-            </x-filament-panels::form>
+            </form>
 
         @else
             {{-- ── Not enabled ── --}}

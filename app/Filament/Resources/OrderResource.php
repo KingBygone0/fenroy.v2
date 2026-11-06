@@ -67,6 +67,8 @@ class OrderResource extends Resource
                     'failed'  => 'Failed',
                 ])->columnSpan(1),
             TextInput::make('delivery_address')->columnSpan(2),
+            TextInput::make('delivery_window')->disabled()->columnSpan(1),
+            TextInput::make('substitution')->label('If an item is unavailable')->disabled()->columnSpan(1),
             TextInput::make('total')->numeric()->prefix('GH₵')->disabled()->columnSpan(1),
             TextInput::make('delivery_fee')->numeric()->prefix('GH₵')->disabled()->columnSpan(1),
             Textarea::make('notes')->columnSpan(2)->rows(3),
@@ -82,7 +84,7 @@ class OrderResource extends Resource
                     $rows = '';
                     $subtotal = 0;
                     foreach ($record->items as $item) {
-                        $qty   = $item['quantity'] ?? 1;
+                        $qty   = $item['qty'] ?? $item['quantity'] ?? 1;
                         $price = $item['price'] ?? 0;
                         $line  = $qty * $price;
                         $subtotal += $line;

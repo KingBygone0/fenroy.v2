@@ -254,8 +254,8 @@
         {{ $slot }}
     </main>
 
-    {{-- ─── Mobile Download Banner (hidden inside the Android app) ── --}}
-    @if(!str_contains(request()->userAgent() ?? '', 'FenroyApp'))
+    {{-- ─── Mobile Download Banner (hidden inside the app) ── --}}
+    @if(! \App\Support\NativeApp::detected())
     <div x-data="{ show: !localStorage.getItem('fenroyAppBannerDismissed') }"
          x-show="show"
          x-transition:enter="transition ease-out duration-200"
@@ -300,12 +300,14 @@
                 <a href="{{ route('faq') }}" class="hover:text-brand-text transition-colors">FAQ</a>
                 <a href="{{ route('contact') }}" class="hover:text-brand-text transition-colors">Contact</a>
                 <a href="{{ route('privacy') }}" class="hover:text-brand-text transition-colors">Privacy</a>
+                @unless(\App\Support\NativeApp::detected())
                 <a href="https://fenroy.shop/downloads/fenroy.apk"
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-red text-white text-[12px] font-semibold hover:opacity-90 transition-opacity"
                    target="_blank" rel="noopener">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     Download App
                 </a>
+                @endunless
             </nav>
             <p class="text-[13px] text-brand-secondary-text">
                 Powered by <a href="#" class="font-bold text-brand-red">Fenroy</a>
@@ -344,6 +346,12 @@
 
     @livewireScripts
     <script src="https://js.paystack.co/v1/inline.js"></script>
+
+    @if(session('status') === 'account-deleted')
+    <script nonce="{{ Vite::cspNonce() }}">
+    window.addEventListener('load', () => window.dispatchEvent(new CustomEvent('toast', { detail: { message: 'Your account has been deleted.' } })));
+    </script>
+    @endif
 
     {{-- PWA Service Worker --}}
     <script nonce="{{ Vite::cspNonce() }}">

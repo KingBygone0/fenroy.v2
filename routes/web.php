@@ -109,6 +109,7 @@ Route::get('/delivery', function () {
 Route::get('/faq',      fn () => view('storefront.faq'))->name('faq');
 Route::get('/contact',  fn () => view('storefront.contact'))->name('contact');
 Route::get('/privacy',  fn () => view('storefront.privacy'))->name('privacy');
+Route::get('/delete-account', fn () => view('storefront.delete-account'))->name('account.delete-info');
 
 // ── Orders ───────────────────────────────────────────────────────
 // Only show order confirmation to the session owner (order placed in this session).

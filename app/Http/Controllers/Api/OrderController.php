@@ -63,12 +63,9 @@ class OrderController extends Controller
         $ref = 'FEN-' . strtoupper(Str::random(20));
         $secretKey = Setting::get('paystack_secret_key') ?: config('paystack.secret_key');
 
-        $deliveryWindowLabel = match ($request->delivery_window) {
-            'morning'   => 'Today, 8am – 12pm',
-            'afternoon' => 'Today, 12pm – 4pm',
-            'evening'   => 'Today, 4pm – 8pm',
-            default     => $request->delivery_window,
-        };
+        $deliveryWindowLabel = in_array($request->delivery_window, \App\Support\DeliveryWindows::keys(), true)
+            ? \App\Support\DeliveryWindows::label($request->delivery_window)
+            : $request->delivery_window;
 
         $paystackResponse = Http::withToken($secretKey)
             ->post(config('paystack.payment_url') . '/transaction/initialize', [
@@ -148,7 +145,7 @@ class OrderController extends Controller
         $paidKobo     = $data['amount'];
         $expectedKobo = round($orderData['total'] * 100);
 
-        if ($paidKobo < $expectedKobo) {
+        if ($paidKobo < $expectedKobo || strtoupper($data['currency'] ?? 'GHS') !== 'GHS') {
             return response()->json(['message' => 'Amount mismatch.'], 400);
         }
 

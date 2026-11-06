@@ -158,7 +158,8 @@
         </div>
     </footer>
 
-    {{-- ─── Mobile: Download App nudge (above bottom nav) ───── --}}
+    {{-- ─── Mobile: Download App nudge (above bottom nav, hidden inside the app) ───── --}}
+    @unless(\App\Support\NativeApp::detected())
     <div class="md:hidden fixed bottom-[60px] inset-x-0 z-40 px-4 pb-2 pointer-events-none">
         <a href="https://github.com/KingBygone0/fenroy.v2/releases/latest" target="_blank" rel="noopener"
            class="pointer-events-auto flex items-center justify-center gap-2 w-full bg-brand-text text-white text-sm font-medium py-2.5 rounded-xl shadow-lg">
@@ -166,6 +167,7 @@
             Download Fenroy App (Android)
         </a>
     </div>
+    @endunless
 
     {{-- ─── Mobile Bottom Nav ─────────────────────────────────── --}}
     <nav class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-brand-border-light safe-area-pb">

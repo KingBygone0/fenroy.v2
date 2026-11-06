@@ -132,4 +132,50 @@
         </div>
     </div>
 
+    {{-- Delete account --}}
+    <div class="bg-white rounded-2xl border border-brand-border-light p-6" x-data="{ open: false }" id="delete-account">
+        <h2 class="text-[17px] font-extrabold text-brand-text mb-2">Delete account</h2>
+        <p class="text-sm text-brand-secondary-text mb-4">
+            This permanently deletes your Fenroy account, saved addresses, wishlist and reviews.
+            Past orders are kept for our accounts with your name and contact details removed. This can't be undone.
+        </p>
+
+        <button type="button" x-show="!open" @click="open = true"
+                class="h-11 px-6 rounded-full border border-brand-danger text-brand-danger text-sm font-semibold hover:bg-brand-danger hover:text-white transition-colors cursor-pointer">
+            Delete my account
+        </button>
+
+        <div x-show="open" style="display:none" class="space-y-4">
+            @if(auth()->user()?->password)
+                <div>
+                    <label class="block text-[13px] font-semibold text-brand-text mb-1.5" for="delete-password">Current password</label>
+                    <input id="delete-password" type="password" wire:model="deletePassword" autocomplete="current-password"
+                           class="w-full h-11 px-4 rounded-[10px] border border-brand-input-border focus:outline-none focus:border-brand-danger focus:ring-[3px] focus:ring-brand-danger/20 transition text-sm text-brand-text">
+                    @error('deletePassword') <p class="mt-1.5 text-xs font-medium text-brand-danger">{{ $message }}</p> @enderror
+                </div>
+            @else
+                <div>
+                    <label class="block text-[13px] font-semibold text-brand-text mb-1.5" for="delete-confirm">Type <strong>DELETE</strong> to confirm</label>
+                    <input id="delete-confirm" type="text" wire:model="deleteConfirm" autocomplete="off"
+                           class="w-full h-11 px-4 rounded-[10px] border border-brand-input-border focus:outline-none focus:border-brand-danger focus:ring-[3px] focus:ring-brand-danger/20 transition text-sm text-brand-text">
+                    @error('deleteConfirm') <p class="mt-1.5 text-xs font-medium text-brand-danger">{{ $message }}</p> @enderror
+                </div>
+            @endif
+
+            @error('deleteAccount') <p class="text-sm font-medium text-brand-danger" role="alert">{{ $message }}</p> @enderror
+
+            <div class="flex flex-wrap gap-3">
+                <button type="button" wire:click="deleteAccount" wire:loading.attr="disabled"
+                        class="h-11 px-6 rounded-full bg-brand-danger text-white text-sm font-semibold hover:opacity-90 transition cursor-pointer disabled:opacity-45">
+                    <span wire:loading.remove wire:target="deleteAccount">Permanently delete account</span>
+                    <span wire:loading wire:target="deleteAccount">Deleting&hellip;</span>
+                </button>
+                <button type="button" @click="open = false"
+                        class="h-11 px-6 rounded-full border border-brand-border text-brand-text text-sm font-semibold cursor-pointer">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
