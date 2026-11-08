@@ -13,9 +13,9 @@
     <div style="width:100%; max-width:440px; margin:0 auto;">
 
         {{-- Logo --}}
-        <div style="display:flex; justify-content:center; align-items:center; margin-bottom:28px;">
-            <a href="{{ route('home') }}" style="display:inline-flex; align-items:center; gap:10px; text-decoration:none;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="height:40px; width:40px; flex-shrink:0;">
+        <div style="display:flex; justify-content:center; align-items:center; margin-bottom:32px;">
+            <a href="{{ route('home') }}" style="display:inline-flex; align-items:center; gap:14px; text-decoration:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="height:64px; width:64px; flex-shrink:0;">
                     <g transform="rotate(8, 256, 256)">
                         <rect x="28" y="28" width="456" height="456" rx="88" ry="88" fill="#A80000"/>
                     </g>
@@ -25,7 +25,7 @@
                     <circle cx="218" cy="342" r="30" fill="white"/>
                     <circle cx="308" cy="342" r="30" fill="white"/>
                 </svg>
-                <span style="font-size:22px; font-weight:800; color:#A80000; letter-spacing:-0.03em;">Fenroy</span>
+                <span style="font-size:34px; font-weight:800; color:#A80000; letter-spacing:-0.03em;">Fenroy</span>
             </a>
         </div>
 
