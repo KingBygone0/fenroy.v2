@@ -85,3 +85,9 @@
     margin-bottom: 1rem;
 }
 .prose-policy strong { color: #171717; }
+
+/* Password fields have their own show/hide button: hide the browser's built-in one (Edge). */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
